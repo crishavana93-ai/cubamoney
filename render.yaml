@@ -6,20 +6,19 @@ services:
   - type: web
     name: cubaremesa
     runtime: node
-    plan: starter            # needed for a persistent disk
+    plan: free               # free tier, no card. NOTE: no persistent disk —
+                             # the SQLite DB is ephemeral and resets on restart.
+                             # For production, switch to `plan: starter` and add
+                             # the `disk:` block (see DEPLOY.md) so data persists.
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/rates
     autoDeploy: true
-    disk:
-      name: cubaremesa-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: DB_PATH
-        value: /data/data.sqlite
+        value: /tmp/data.sqlite   # writable on free tier (ephemeral)
       - key: JWT_SECRET
         generateValue: true   # Render generates a strong secret
       - key: ADMIN_EMAIL
