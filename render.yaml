@@ -1,10 +1,10 @@
-# Render blueprint for the CubaRemesa backend (Express + SQLite).
+# Render blueprint for CubaRemesa (Express serves the frontend + API).
 # A persistent disk keeps the SQLite database across deploys/restarts.
 # Note: persistent disks require a paid Render instance type.
 # Alternatives with volumes: Railway, Fly.io (see DEPLOY.md).
 services:
   - type: web
-    name: cubaremesa-api
+    name: cubaremesa
     runtime: node
     plan: starter            # needed for a persistent disk
     buildCommand: npm install
