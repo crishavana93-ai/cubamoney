@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CubaRemesa — Envía dinero a Cuba rápido y con bajas comisiones</title>
+<meta name="description" content="Envía dinero a Cuba en minutos. Paga con PayPal o transferencia bancaria. Tu familia recibe MLC, USD en efectivo, pesos cubanos o recarga Cubacel.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div id="header"></div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <div class="flag-bar">
+        <span style="background:var(--blue)"></span>
+        <span style="background:#fff;border:1px solid var(--line)"></span>
+        <span style="background:var(--red)"></span>
+      </div>
+      <h1><span data-i18n="hero.title1"></span><br><span data-i18n="hero.title2"></span></h1>
+      <p class="lead" data-i18n="hero.lead"></p>
+      <ul class="hero-points">
+        <li><span class="tick">✓</span> <span data-i18n="hero.p1"></span></li>
+        <li><span class="tick">✓</span> <span data-i18n="hero.p2"></span></li>
+        <li><span class="tick">✓</span> <span data-i18n="hero.p3"></span></li>
+      </ul>
+    </div>
+
+    <!-- CALCULATOR -->
+    <div class="calc" id="calc">
+      <h3 data-i18n="calc.title"></h3>
+      <div class="field">
+        <label data-i18n="calc.send"></label>
+        <div class="amount-row">
+          <input id="amount" type="number" inputmode="decimal" value="100" min="1" step="1">
+          <span class="cur">USD</span>
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="calc.receiveVia"></label>
+        <select id="method"></select>
+      </div>
+      <div class="breakdown" id="breakdown"></div>
+      <div class="err hidden" id="calcErr"></div>
+      <a class="btn btn-primary btn-block" id="calcGo" href="/send.html" data-i18n="common.continue"></a>
+      <p class="muted center" style="font-size:.78rem;margin:.7rem 0 0" data-i18n="calc.indicative"></p>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="container">
+  <div class="stats">
+    <div class="stat"><div class="n">5</div><div class="l" data-i18n="stats.ways"></div></div>
+    <div class="stat"><div class="n" data-i18n="stats.minsValue"></div><div class="l" data-i18n="stats.mins"></div></div>
+    <div class="stat"><div class="n">16</div><div class="l" data-i18n="stats.provinces"></div></div>
+    <div class="stat"><div class="n">24/7</div><div class="l" data-i18n="stats.support"></div></div>
+  </div>
+</div>
+
+<!-- METHODS -->
+<section class="block" id="methods">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow" data-i18n="methods.eyebrow"></div>
+      <h2 data-i18n="methods.title"></h2>
+      <p data-i18n="methods.sub"></p>
+    </div>
+    <div class="cards" id="methodCards"></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="block" id="how" style="background:#fff">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow" data-i18n="how.eyebrow"></div>
+      <h2 data-i18n="how.title"></h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><h3 data-i18n="how.s1t"></h3><p data-i18n="how.s1p"></p></div>
+      <div class="step"><div class="num">2</div><h3 data-i18n="how.s2t"></h3><p data-i18n="how.s2p"></p></div>
+      <div class="step"><div class="num">3</div><h3 data-i18n="how.s3t"></h3><p data-i18n="how.s3p"></p></div>
+      <div class="step"><div class="num">4</div><h3 data-i18n="how.s4t"></h3><p data-i18n="how.s4p"></p></div>
+    </div>
+    <div class="center" style="margin-top:34px"><a class="btn btn-primary" href="/send.html" data-i18n="how.cta"></a></div>
+  </div>
+</section>
+
+<!-- TRUST BAND -->
+<section class="block band">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow" style="color:#9fc0ff" data-i18n="trust.eyebrow"></div>
+      <h2 data-i18n="trust.title"></h2>
+      <p data-i18n="trust.sub"></p>
+    </div>
+    <div class="features">
+      <div class="feature"><div class="ico">🔒</div><h3 data-i18n="trust.f1t"></h3><p data-i18n="trust.f1p"></p></div>
+      <div class="feature"><div class="ico">🧾</div><h3 data-i18n="trust.f2t"></h3><p data-i18n="trust.f2p"></p></div>
+      <div class="feature"><div class="ico">🇨🇺</div><h3 data-i18n="trust.f3t"></h3><p data-i18n="trust.f3p"></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEES -->
+<section class="block" id="fees">
+  <div class="container">
+    <div class="section-head">
+      <div class="eyebrow" data-i18n="fees.eyebrow"></div>
+      <h2 data-i18n="fees.title"></h2>
+      <p data-i18n="fees.sub"></p>
+    </div>
+    <div class="card-box" style="overflow-x:auto">
+      <table class="tbl" id="feesTable">
+        <thead><tr>
+          <th data-i18n="fees.method"></th><th data-i18n="fees.receiveIn"></th>
+          <th data-i18n="fees.rate"></th><th data-i18n="fees.fee"></th><th data-i18n="fees.deliveryCol"></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="block" id="faq" style="background:#fff">
+  <div class="container" style="max-width:780px">
+    <div class="section-head"><div class="eyebrow" data-i18n="faq.eyebrow"></div><h2 data-i18n="faq.title"></h2></div>
+    <div id="faqList"></div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="block">
+  <div class="container">
+    <div class="cta">
+      <h2 data-i18n="cta.title"></h2>
+      <p data-i18n="cta.sub"></p>
+      <a class="btn btn-red" href="/send.html" data-i18n="cta.btn"></a>
+    </div>
+  </div>
+</section>
+
+<div id="footer"></div>
+
+<script type="module">
+import { api, METHOD_ICONS, money, t, renderHeader, renderFooter, applyI18n } from '/js/app.js';
+import { methodLabel, methodEta } from '/js/i18n.js';
+
+let RATES = [];
+
+async function boot() {
+  await renderHeader();
+  renderFooter();
+  applyI18n();
+  const { rates } = await api.get('/api/rates');
+  RATES = rates;
+  const sel = document.getElementById('method');
+  sel.innerHTML = rates.map(r => `<option value="${r.payout_method}"></option>`).join('');
+
+  document.getElementById('amount').addEventListener('input', updateQuote);
+  sel.addEventListener('change', updateQuote);
+  document.addEventListener('langchange', renderDynamic);
+  renderDynamic();
+  updateQuote();
+}
+
+function renderDynamic() {
+  // method dropdown options
+  const sel = document.getElementById('method');
+  [...sel.options].forEach(o => { o.textContent = methodLabel(o.value); });
+
+  document.getElementById('methodCards').innerHTML = RATES.map(r => `
+    <div class="pcard">
+      <div class="ico">${METHOD_ICONS[r.payout_method] || '💸'}</div>
+      <h3>${methodLabel(r.payout_method)}</h3>
+      <p>${t('methods.receiveIn')} <b>${r.payout_currency}</b>. ${t('methods.min')} $${r.min_send} · ${t('methods.max')} $${r.max_send}.</p>
+      <div class="eta">⏱ ${methodEta(r.payout_method)}</div>
+    </div>`).join('');
+
+  document.querySelector('#feesTable tbody').innerHTML = RATES.map(r => `
+    <tr>
+      <td>${METHOD_ICONS[r.payout_method] || ''} ${methodLabel(r.payout_method)}</td>
+      <td>${r.payout_currency}</td>
+      <td>${r.rate} ${r.payout_currency}</td>
+      <td>${feeText(r)}</td>
+      <td>${methodEta(r.payout_method)}</td>
+    </tr>`).join('');
+
+  const faq = [['faq.q1','faq.a1'],['faq.q2','faq.a2'],['faq.q3','faq.a3'],['faq.q4','faq.a4'],['faq.q5','faq.a5']];
+  document.getElementById('faqList').innerHTML = faq.map(([q,a]) => `
+    <details class="card-box" style="margin-bottom:12px">
+      <summary style="cursor:pointer;font-weight:700;color:var(--navy)">${t(q)}</summary>
+      <p style="margin:.7rem 0 0">${t(a)}</p>
+    </details>`).join('');
+
+  updateQuote();
+}
+
+function feeText(r) {
+  if (!r.fee_pct && !r.fee_fixed) return t('fees.free');
+  return `${r.fee_pct ? r.fee_pct + '%' : ''}${r.fee_pct && r.fee_fixed ? ' + ' : ''}${r.fee_fixed ? '$' + r.fee_fixed : ''}`;
+}
+
+let quoteTimer;
+function updateQuote() { clearTimeout(quoteTimer); quoteTimer = setTimeout(doQuote, 220); }
+
+async function doQuote() {
+  const amount = document.getElementById('amount').value;
+  const method = document.getElementById('method').value;
+  const errEl = document.getElementById('calcErr');
+  const bd = document.getElementById('breakdown');
+  const go = document.getElementById('calcGo');
+  if (!amount || Number(amount) <= 0) { bd.innerHTML = `<div class="row">${t('calc.enterAmount')}</div>`; return; }
+  try {
+    const q = await api.get(`/api/quote?amount=${encodeURIComponent(amount)}&payout_method=${method}`);
+    bd.innerHTML = `
+      <div class="row"><span>${t('calc.transferAmount')}</span><span>${money(q.send_amount)}</span></div>
+      <div class="row"><span>${t('calc.fee')}</span><span>${money(q.fee)}</span></div>
+      <div class="row total"><span>${t('calc.youPay')}</span><span>${money(q.total_charge)}</span></div>
+      <div class="row get"><span>${t('calc.theyReceive')}</span><span>${money(q.payout_amount, q.payout_currency)}</span></div>
+      <div class="row" style="margin-top:6px"><span>${t('calc.delivery')}</span><span>${methodEta(q.payout_method)}</span></div>`;
+    if (q.errors && q.errors.length) {
+      errEl.textContent = q.errors.join(' '); errEl.classList.remove('hidden'); go.classList.add('hidden');
+    } else {
+      errEl.classList.add('hidden'); go.classList.remove('hidden');
+      go.href = `/send.html?amount=${q.send_amount}&method=${q.payout_method}`;
+    }
+  } catch (e) { bd.innerHTML = `<div class="row">${e.message}</div>`; }
+}
+
+boot();
+</script>
+</body>
+</html>

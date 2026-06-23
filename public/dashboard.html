@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CubaRemesa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div id="header"></div>
+
+<div class="page">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <div><h1 style="font-size:1.8rem;margin-bottom:0" id="hello" data-i18n="dash.title"></h1><p class="muted" id="kyc"></p></div>
+    <a class="btn btn-primary" href="/send.html" data-i18n="dash.new"></a>
+  </div>
+
+  <div class="card-box" style="margin-top:20px;overflow-x:auto">
+    <table class="tbl" id="ordersTbl">
+      <thead><tr>
+        <th data-i18n="dash.ref"></th><th data-i18n="dash.date"></th><th data-i18n="dash.recipient"></th>
+        <th data-i18n="dash.method"></th><th data-i18n="dash.theyGet"></th><th data-i18n="dash.youPaid"></th><th data-i18n="dash.status"></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="empty" class="muted center hidden" style="padding:24px"></p>
+  </div>
+
+  <h2 style="font-size:1.3rem;margin-top:36px" data-i18n="dash.savedRecipients"></h2>
+  <div class="cards" id="recipients"></div>
+</div>
+
+<div id="footer"></div>
+<script type="module">
+import { api, METHOD_ICONS, money, statusLabel, getMe, t, renderHeader, renderFooter, applyI18n } from '/js/app.js';
+import { methodLabel } from '/js/i18n.js';
+await renderHeader(); renderFooter(); applyI18n();
+
+const me = await getMe();
+if (!me) location.href = '/login.html?next=' + encodeURIComponent('/dashboard.html');
+
+function renderStatic() {
+  applyI18n();
+  if (me) {
+    document.getElementById('hello').textContent = `${t('dash.hi')}, ${me.full_name.split(' ')[0]}`;
+    document.getElementById('kyc').textContent = t('dash.kyc.' + me.kyc_status);
+  }
+  document.getElementById('empty').innerHTML = `${t('dash.empty')} <a href="/send.html">${t('dash.sendFirst')}</a>`;
+}
+
+let ORDERS = [], RCPTS = [];
+async function load() {
+  ({ orders: ORDERS } = await api.get('/api/orders'));
+  ({ recipients: RCPTS } = await api.get('/api/recipients'));
+  renderAll();
+}
+
+function renderAll() {
+  renderStatic();
+  const tb = document.querySelector('#ordersTbl tbody');
+  document.getElementById('empty').classList.toggle('hidden', ORDERS.length > 0);
+  tb.innerHTML = ORDERS.map(o => `
+    <tr>
+      <td><b>${o.ref}</b></td>
+      <td>${o.created_at.split(' ')[0]}</td>
+      <td>${o.recipient_name}<br><span class="muted" style="font-size:.8rem">${o.recipient_province||''}</span></td>
+      <td>${METHOD_ICONS[o.payout_method]||''} ${methodLabel(o.payout_method)}</td>
+      <td>${money(o.payout_amount, o.payout_currency)}</td>
+      <td>${money(o.total_charge)}</td>
+      <td><span class="pill ${o.status}">${statusLabel(o.status)}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('recipients').innerHTML = RCPTS.length
+    ? RCPTS.map(r => `
+      <div class="pcard">
+        <div class="ico">${METHOD_ICONS[r.payout_method]||'👤'}</div>
+        <h3>${r.full_name}</h3>
+        <p>${r.province||''}${r.phone? ' · '+r.phone : ''}<br>${methodLabel(r.payout_method)}</p>
+        <button class="btn btn-ghost btn-sm" data-del="${r.id}">${t('common.remove')}</button>
+      </div>`).join('')
+    : `<p class="muted">${t('dash.noRecipients')}</p>`;
+
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    await api.del('/api/recipients/' + b.dataset.del); load();
+  }));
+}
+
+document.addEventListener('langchange', renderAll);
+load();
+</script>
+</body>
+</html>

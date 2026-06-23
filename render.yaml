@@ -1,0 +1,47 @@
+# Render blueprint for the CubaRemesa backend (Express + SQLite).
+# A persistent disk keeps the SQLite database across deploys/restarts.
+# Note: persistent disks require a paid Render instance type.
+# Alternatives with volumes: Railway, Fly.io (see DEPLOY.md).
+services:
+  - type: web
+    name: cubaremesa-api
+    runtime: node
+    plan: starter            # needed for a persistent disk
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/rates
+    autoDeploy: true
+    disk:
+      name: cubaremesa-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /data/data.sqlite
+      - key: JWT_SECRET
+        generateValue: true   # Render generates a strong secret
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: BANK_BENEFICIARY
+        sync: false
+      - key: BANK_NAME
+        sync: false
+      - key: BANK_IBAN
+        sync: false
+      - key: BANK_BIC
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: RATE_API_TOKEN
+        sync: false
+      # If you serve the frontend from Vercel WITHOUT the proxy, also set:
+      # - key: ALLOWED_ORIGIN   (e.g. https://your-app.vercel.app)
+      # - key: COOKIE_CROSS_SITE  value: "true"

@@ -1,0 +1,9 @@
+# The Vercel deploy only serves the static frontend in public/.
+# Exclude the backend so it isn't uploaded.
+node_modules
+src
+server.js
+render.yaml
+data.sqlite
+data.sqlite-*
+*.log

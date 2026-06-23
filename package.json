@@ -1,0 +1,33 @@
+{
+  "name": "cuba-remesa",
+  "version": "1.0.0",
+  "description": "CubaRemesa — online remittance platform for sending money to Cuba (PayPal + IBAN pay-in).",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node src/seed.js",
+    "rates:update": "node src/rates-update.js"
+  },
+  "keywords": [
+    "remittance",
+    "cuba",
+    "money-transfer",
+    "paypal",
+    "iban"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.10.0",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

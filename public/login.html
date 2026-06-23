@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CubaRemesa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div id="header"></div>
+
+<div class="page narrow">
+  <div class="card-box">
+    <h1 style="font-size:1.6rem" data-i18n="auth.welcome"></h1>
+    <p class="muted" style="margin-top:-.3rem" data-i18n="auth.loginSub"></p>
+    <div id="msg"></div>
+    <form id="form">
+      <div class="form-row">
+        <label data-i18n="auth.email"></label>
+        <input class="fld" type="email" id="email" required autocomplete="email">
+      </div>
+      <div class="form-row">
+        <label data-i18n="auth.password"></label>
+        <input class="fld" type="password" id="password" required autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" data-i18n="auth.loginBtn"></button>
+    </form>
+    <p class="center muted" style="margin-top:18px"><span data-i18n="auth.noAccount"></span> <a href="/register.html" data-i18n="auth.createOne"></a></p>
+  </div>
+</div>
+
+<div id="footer"></div>
+<script type="module">
+import { api, renderHeader, renderFooter, applyI18n } from '/js/app.js';
+await renderHeader(); renderFooter(); applyI18n();
+document.addEventListener('langchange', applyI18n);
+
+const next = new URLSearchParams(location.search).get('next') || '/dashboard.html';
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  document.getElementById('msg').innerHTML = '';
+  try {
+    const { user } = await api.post('/api/auth/login', {
+      email: document.getElementById('email').value,
+      password: document.getElementById('password').value,
+    });
+    location.href = user.role === 'admin' ? '/admin.html' : next;
+  } catch (err) {
+    document.getElementById('msg').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CubaRemesa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div id="header"></div>
+
+<div class="page">
+  <div class="wizard-steps" id="wsteps">
+    <div class="ws" data-s="1"><span class="dot">1</span> <span data-i18n="wiz.amount"></span></div>
+    <div class="ws" data-s="2"><span class="dot">2</span> <span data-i18n="wiz.recipient"></span></div>
+    <div class="ws" data-s="3"><span class="dot">3</span> <span data-i18n="wiz.review"></span></div>
+    <div class="ws" data-s="4"><span class="dot">4</span> <span data-i18n="wiz.pay"></span></div>
+  </div>
+
+  <div id="msg"></div>
+
+  <!-- STEP 1 -->
+  <section id="step1" class="card-box">
+    <h2 style="font-size:1.4rem" data-i18n="wiz.s1title"></h2>
+    <div class="grid-2">
+      <div class="form-row">
+        <label data-i18n="wiz.sendUsd"></label>
+        <div class="amount-row"><input id="amount" type="number" value="100" min="1" step="1"><span class="cur">USD</span></div>
+      </div>
+      <div class="form-row">
+        <label data-i18n="calc.receiveVia"></label>
+        <select id="method"></select>
+      </div>
+    </div>
+    <div class="breakdown" id="breakdown"></div>
+    <div class="err hidden" id="calcErr"></div>
+    <button class="btn btn-primary" id="toStep2" data-i18n="common.continue"></button>
+  </section>
+
+  <!-- STEP 2 -->
+  <section id="step2" class="card-box hidden">
+    <h2 style="font-size:1.4rem" data-i18n="wiz.s2title"></h2>
+    <div id="savedRecipients"></div>
+    <h3 style="font-size:1rem;margin-top:18px" data-i18n="wiz.addNew"></h3>
+    <div class="grid-2">
+      <div class="form-row"><label data-i18n="wiz.fullName"></label><input class="fld" id="r_name"></div>
+      <div class="form-row"><label data-i18n="wiz.phoneCuba"></label><input class="fld" id="r_phone" placeholder="+53 ..."></div>
+    </div>
+    <div class="form-row">
+      <label data-i18n="wiz.province"></label>
+      <select id="r_province"></select>
+    </div>
+    <div id="methodFields"></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost" id="back2" data-i18n="common.back"></button>
+      <button class="btn btn-primary" id="toStep3" data-i18n="common.continue"></button>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section id="step3" class="card-box hidden">
+    <h2 style="font-size:1.4rem" data-i18n="wiz.s3title"></h2>
+    <div id="reviewBox"></div>
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button class="btn btn-ghost" id="back3" data-i18n="common.back"></button>
+      <button class="btn btn-primary" id="toStep4" data-i18n="wiz.confirmPay"></button>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section id="step4" class="card-box hidden">
+    <h2 style="font-size:1.4rem" data-i18n="wiz.s4title"></h2>
+    <p class="muted"><span data-i18n="wiz.order"></span> <b id="orderRef"></b> · <span data-i18n="wiz.youPay2"></span> <b id="orderTotal"></b></p>
+    <div class="pay-tabs">
+      <button data-pay="paypal" class="sel">PayPal</button>
+      <button data-pay="iban" data-i18n="wiz.bankTransfer"></button>
+    </div>
+
+    <div id="payPaypal">
+      <div id="paypal-buttons"></div>
+      <div id="paypalDemo" class="hidden">
+        <div class="alert alert-info" data-i18n="wiz.demoNote"></div>
+        <button class="btn btn-primary btn-block" id="demoPay" data-i18n="wiz.simulate"></button>
+      </div>
+    </div>
+
+    <div id="payIban" class="hidden">
+      <div class="alert alert-info" data-i18n="wiz.ibanNote"></div>
+      <div class="bank-box" id="bankBox"></div>
+      <button class="btn btn-primary btn-block" id="ibanConfirm" style="margin-top:14px" data-i18n="wiz.madeTransfer"></button>
+    </div>
+  </section>
+
+  <!-- DONE -->
+  <section id="done" class="card-box hidden center">
+    <div style="font-size:3rem">✅</div>
+    <h2 style="font-size:1.5rem" data-i18n="wiz.doneTitle"></h2>
+    <p id="doneMsg" class="muted"></p>
+    <a class="btn btn-primary" href="/dashboard.html" data-i18n="wiz.viewTransfers"></a>
+  </section>
+</div>
+
+<div id="footer"></div>
+
+<script type="module">
+import { api, METHOD_ICONS, money, getMe, t, renderHeader, renderFooter, applyI18n } from '/js/app.js';
+import { methodLabel, methodEta } from '/js/i18n.js';
+
+const params = new URLSearchParams(location.search);
+const state = { amount: Number(params.get('amount')) || 100, method: params.get('method') || null,
+  quote: null, recipientId: null, order: null, config: null, rates: [] };
+
+const $ = (id) => document.getElementById(id);
+function showMsg(text, kind='error'){ $('msg').innerHTML = `<div class="alert alert-${kind}">${text}</div>`; window.scrollTo({top:0,behavior:'smooth'}); }
+function clearMsg(){ $('msg').innerHTML=''; }
+
+await renderHeader(); renderFooter(); applyI18n();
+
+const me = await getMe();
+if (!me) location.href = '/login.html?next=' + encodeURIComponent('/send.html' + location.search);
+
+// recipient fields per method (label keys)
+const METHOD_FIELDS = {
+  mlc_bank: [['bank','rf.bank','select',['BANDEC','BPA','Banco Metropolitano']],['account','rf.account','text']],
+  mlc_card: [['card','rf.card','text']],
+  usd_cash: [['address','rf.address','text'],['municipality','rf.municipality','text']],
+  cup_cash: [['address','rf.address','text'],['municipality','rf.municipality','text']],
+  cubacel:  [['phone','rf.phone','text']],
+};
+
+function gotoStep(n) {
+  [1,2,3,4].forEach(i => $('step'+i).classList.toggle('hidden', i !== n));
+  $('done').classList.add('hidden');
+  document.querySelectorAll('.ws').forEach(w => {
+    const s = Number(w.dataset.s);
+    w.classList.toggle('active', s === n);
+    w.classList.toggle('done', s < n);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function init() {
+  state.config = await api.get('/api/config');
+  const [{ rates }, { provinces }] = await Promise.all([api.get('/api/rates'), api.get('/api/provinces')]);
+  state.rates = rates;
+  if (!state.method) state.method = rates[0].payout_method;
+
+  $('method').innerHTML = rates.map(r => `<option value="${r.payout_method}" ${r.payout_method===state.method?'selected':''}></option>`).join('');
+  $('amount').value = state.amount;
+  $('r_province').innerHTML = provinces.map(p => `<option>${p}</option>`).join('');
+
+  $('amount').addEventListener('input', refreshQuote);
+  $('method').addEventListener('change', () => { state.method = $('method').value; renderMethodFields(); refreshQuote(); loadRecipients(); });
+
+  document.addEventListener('langchange', () => { applyI18n(); refreshLabels(); renderMethodFields(); refreshQuote(); loadRecipients(); });
+
+  refreshLabels();
+  renderMethodFields();
+  await refreshQuote();
+  await loadRecipients();
+  bindNav();
+  gotoStep(1);
+}
+
+function refreshLabels() {
+  [...$('method').options].forEach(o => o.textContent = methodLabel(o.value));
+}
+
+let qTimer;
+function refreshQuote(){ clearTimeout(qTimer); qTimer = setTimeout(doQuote, 200); }
+async function doQuote() {
+  state.amount = Number($('amount').value);
+  state.method = $('method').value;
+  try {
+    const q = await api.get(`/api/quote?amount=${state.amount}&payout_method=${state.method}`);
+    state.quote = q;
+    $('breakdown').innerHTML = `
+      <div class="row"><span>${t('calc.transferAmount')}</span><span>${money(q.send_amount)}</span></div>
+      <div class="row"><span>${t('calc.fee')}</span><span>${money(q.fee)}</span></div>
+      <div class="row total"><span>${t('calc.youPay')}</span><span>${money(q.total_charge)}</span></div>
+      <div class="row get"><span>${t('calc.theyReceive')}</span><span>${money(q.payout_amount, q.payout_currency)}</span></div>
+      <div class="row" style="margin-top:6px"><span>${t('calc.delivery')}</span><span>${methodEta(q.payout_method)}</span></div>`;
+    const err = $('calcErr');
+    if (q.errors && q.errors.length){ err.textContent = q.errors.join(' '); err.classList.remove('hidden'); $('toStep2').disabled = true; }
+    else { err.classList.add('hidden'); $('toStep2').disabled = false; }
+  } catch(e){ $('breakdown').innerHTML = `<div class="row">${e.message}</div>`; }
+}
+
+function renderMethodFields() {
+  const fields = METHOD_FIELDS[state.method] || [];
+  $('methodFields').innerHTML = fields.map(([key,labelKey,type,opts]) => {
+    if (type==='select') return `<div class="form-row"><label>${t(labelKey)}</label><select class="fld" data-mf="${key}">${opts.map(o=>`<option>${o}</option>`).join('')}</select></div>`;
+    return `<div class="form-row"><label>${t(labelKey)}</label><input class="fld" data-mf="${key}"></div>`;
+  }).join('');
+}
+
+async function loadRecipients() {
+  const { recipients } = await api.get('/api/recipients');
+  const matching = recipients.filter(r => r.payout_method === state.method);
+  const box = $('savedRecipients');
+  if (!matching.length){ box.innerHTML = `<p class="muted" style="font-size:.9rem">${t('wiz.noSaved')}</p>`; return; }
+  box.innerHTML = `<div class="method-pick">${matching.map(r => `
+    <label class="opt"><input type="radio" name="rcpt" value="${r.id}">
+      <span class="ico">${METHOD_ICONS[r.payout_method]||'👤'}</span>
+      <span class="meta"><span class="t">${r.full_name}</span><span class="s">${r.province||''} · ${r.phone||''}</span></span>
+    </label>`).join('')}</div>`;
+  box.querySelectorAll('input[name=rcpt]').forEach(i => i.addEventListener('change', () => { state.recipientId = Number(i.value); }));
+}
+
+function collectNewRecipient() {
+  const details = {};
+  document.querySelectorAll('#methodFields [data-mf]').forEach(el => details[el.dataset.mf] = el.value.trim());
+  return {
+    full_name: $('r_name').value.trim(), phone: $('r_phone').value.trim(),
+    province: $('r_province').value, payout_method: state.method, details,
+  };
+}
+
+function bindNav() {
+  $('toStep2').addEventListener('click', () => { if (state.quote && !(state.quote.errors||[]).length) gotoStep(2); });
+  $('back2').addEventListener('click', () => gotoStep(1));
+  $('back3').addEventListener('click', () => gotoStep(2));
+
+  $('toStep3').addEventListener('click', async () => {
+    clearMsg();
+    try {
+      if (!state.recipientId) {
+        const nr = collectNewRecipient();
+        if (!nr.full_name) return showMsg(t('wiz.errName'));
+        const required = (METHOD_FIELDS[state.method]||[]).map(f=>f[0]);
+        for (const k of required) if (!nr.details[k]) return showMsg(t('wiz.errDetails'));
+        const { recipient } = await api.post('/api/recipients', nr);
+        state.recipientId = recipient.id;
+      }
+      renderReview(); gotoStep(3);
+    } catch(e){ showMsg(e.message); }
+  });
+
+  $('toStep4').addEventListener('click', async () => {
+    clearMsg();
+    try {
+      const { order } = await api.post('/api/orders', {
+        recipient_id: state.recipientId, send_amount: state.amount, payout_method: state.method,
+      });
+      state.order = order;
+      $('orderRef').textContent = order.ref;
+      $('orderTotal').textContent = money(order.total_charge);
+      setupPayment();
+      gotoStep(4);
+    } catch(e){ showMsg(e.message); }
+  });
+}
+
+function renderReview() {
+  const q = state.quote;
+  $('reviewBox').innerHTML = `
+    <div class="breakdown">
+      <div class="row"><span>${t('calc.send')}</span><span>${money(q.send_amount)}</span></div>
+      <div class="row"><span>${t('calc.fee')}</span><span>${money(q.fee)}</span></div>
+      <div class="row total"><span>${t('wiz.totalPay')}</span><span>${money(q.total_charge)}</span></div>
+      <div class="row get"><span>${t('calc.theyReceive')}</span><span>${money(q.payout_amount, q.payout_currency)}</span></div>
+      <div class="row"><span>${t('wiz.method')}</span><span>${methodLabel(q.payout_method)}</span></div>
+      <div class="row"><span>${t('wiz.estDelivery')}</span><span>${methodEta(q.payout_method)}</span></div>
+    </div>`;
+}
+
+function setupPayment() {
+  document.querySelectorAll('.pay-tabs button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.pay-tabs button').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel');
+    $('payPaypal').classList.toggle('hidden', b.dataset.pay!=='paypal');
+    $('payIban').classList.toggle('hidden', b.dataset.pay!=='iban');
+  }));
+
+  const bank = state.config.bank;
+  $('bankBox').innerHTML = `
+    <div class="row"><span>${t('wiz.beneficiary')}</span><b>${bank.beneficiary}</b></div>
+    <div class="row"><span>${t('wiz.bank')}</span><b>${bank.bank}</b></div>
+    <div class="row"><span>IBAN</span><b>${bank.iban}</b></div>
+    <div class="row"><span>BIC/SWIFT</span><b>${bank.bic}</b></div>
+    <div class="row"><span>${t('wiz.amountWord')}</span><b>${money(state.order.total_charge)}</b></div>
+    <div class="row"><span>${t('wiz.reference')}</span><b>${state.order.ref}</b></div>`;
+  $('ibanConfirm').addEventListener('click', async () => {
+    try { await api.post(`/api/orders/${state.order.ref}/iban`, {}); finish('bank'); }
+    catch(e){ showMsg(e.message); }
+  });
+
+  if (state.config.paypalConfigured) loadPaypalSdk();
+  else { $('paypalDemo').classList.remove('hidden'); $('demoPay').addEventListener('click', demoPay); }
+}
+
+async function demoPay() {
+  try {
+    await api.post(`/api/orders/${state.order.ref}/paypal/create`, {});
+    const res = await api.post(`/api/orders/${state.order.ref}/paypal/capture`, {});
+    if (res.status === 'paid') finish('paypal'); else showMsg('Status: ' + res.status);
+  } catch(e){ showMsg(e.message); }
+}
+
+function loadPaypalSdk() {
+  const s = document.createElement('script');
+  s.src = `https://www.paypal.com/sdk/js?client-id=${state.config.paypalClientId}&currency=USD`;
+  s.onload = () => {
+    window.paypal.Buttons({
+      style: { layout: 'vertical', color: 'blue', shape: 'pill', label: 'pay' },
+      createOrder: async () => (await api.post(`/api/orders/${state.order.ref}/paypal/create`, {})).id,
+      onApprove: async () => {
+        const res = await api.post(`/api/orders/${state.order.ref}/paypal/capture`, {});
+        if (res.status === 'paid') finish('paypal'); else showMsg('Status: ' + res.status);
+      },
+      onError: (err) => showMsg('PayPal error: ' + err),
+    }).render('#paypal-buttons');
+  };
+  document.body.appendChild(s);
+}
+
+function finish(kind) {
+  $('doneMsg').innerHTML = kind === 'bank'
+    ? t('wiz.doneBank', { ref: `<b>${state.order.ref}</b>` })
+    : t('wiz.donePaypal', { ref: `<b>${state.order.ref}</b>` });
+  [1,2,3,4].forEach(i => $('step'+i).classList.add('hidden'));
+  document.querySelectorAll('.ws').forEach(w => w.classList.add('done'));
+  $('done').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+init();
+</script>
+</body>
+</html>

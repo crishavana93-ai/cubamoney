@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — CubaRemesa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div id="header"></div>
+
+<div class="page">
+  <h1 style="font-size:1.8rem">Admin dashboard</h1>
+  <div class="stats" id="stats" style="padding:10px 0 24px"></div>
+
+  <!-- Auto exchange rate -->
+  <h2 style="font-size:1.3rem">Exchange rate automation</h2>
+  <div class="card-box" id="rateAuto">
+    <div class="grid-2" style="align-items:end">
+      <div class="form-row" style="margin:0">
+        <label>Platform margin / spread (%)</label>
+        <input class="fld" id="margin" type="number" step="0.1" min="0" max="50">
+        <p class="muted" style="font-size:.8rem;margin:.4rem 0 0">Applied to CUP and MLC payouts on each auto-update. USD cash delivery is not affected.</p>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" id="saveMargin">Save margin</button>
+        <button class="btn btn-primary" id="updateNow">Update rates now</button>
+      </div>
+    </div>
+    <div id="rateInfo" class="alert alert-info" style="margin-top:16px"></div>
+  </div>
+
+  <h2 style="font-size:1.3rem;margin-top:36px">Orders</h2>
+  <div class="card-box" style="overflow-x:auto">
+    <table class="tbl" id="ordersTbl">
+      <thead><tr><th>Ref</th><th>Date</th><th>Sender</th><th>Recipient</th><th>Method</th><th>They get</th><th>Charged</th><th>Pay-in</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h2 style="font-size:1.3rem;margin-top:36px">Rates & fees</h2>
+  <div class="card-box" style="overflow-x:auto">
+    <table class="tbl" id="ratesTbl">
+      <thead><tr><th>Method</th><th>Rate /$1</th><th>Fee %</th><th>Fee fixed</th><th>Min</th><th>Max</th><th>ETA</th><th>Active</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="footer"></div>
+<script type="module">
+import { api, METHOD_ICONS, money, statusLabel, getMe, renderHeader, renderFooter, applyI18n } from '/js/app.js';
+import { methodLabel } from '/js/i18n.js';
+await renderHeader(); renderFooter(); applyI18n();
+document.addEventListener('langchange', () => { applyI18n(); boot(); });
+
+const me = await getMe();
+if (!me) location.href = '/login.html?next=/admin.html';
+else if (me.role !== 'admin') document.querySelector('.page').innerHTML = '<div class="alert alert-error">Admin access required.</div>';
+else boot();
+
+const STATUSES = ['pending_payment','awaiting_transfer','paid','processing','completed','cancelled','failed'];
+
+async function boot() {
+  const s = await api.get('/api/admin/stats');
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="n">${s.orders}</div><div class="l">Orders</div></div>
+    <div class="stat"><div class="n">${money(s.volume)}</div><div class="l">Paid volume</div></div>
+    <div class="stat"><div class="n">${money(s.revenue)}</div><div class="l">Fee revenue</div></div>
+    <div class="stat"><div class="n">${s.users}</div><div class="l">Users</div></div>`;
+  await loadRateSettings();
+  await loadOrders();
+  await loadRates();
+}
+
+async function loadRateSettings() {
+  const r = await api.get('/api/admin/rate-settings');
+  document.getElementById('margin').value = r.margin_pct;
+  const when = r.rates_updated_at ? new Date(r.rates_updated_at).toLocaleString() : 'never';
+  const src = r.source_configured ? 'elTOQUE API connected' : 'No rate source configured (set RATE_API_TOKEN in .env to enable auto-updates)';
+  document.getElementById('rateInfo').innerHTML =
+    `<b>Source:</b> ${src}<br><b>Last informal rate:</b> ${r.informal_usd_cup ? r.informal_usd_cup + ' CUP / USD' : '—'}` +
+    `${r.informal_mlc_cup ? ' · ' + r.informal_mlc_cup + ' CUP / MLC' : ''}<br><b>Last updated:</b> ${when}`;
+
+  document.getElementById('saveMargin').onclick = async () => {
+    await api.post('/api/admin/rate-settings', { margin_pct: document.getElementById('margin').value });
+    flash('saveMargin', 'Saved ✓', 'Save margin');
+  };
+  document.getElementById('updateNow').onclick = async () => {
+    const btn = document.getElementById('updateNow'); btn.textContent = 'Updating…'; btn.disabled = true;
+    const res = await api.post('/api/admin/rates-refresh', {});
+    btn.disabled = false; btn.textContent = 'Update rates now';
+    if (res.ok) boot();
+    else document.getElementById('rateInfo').innerHTML += `<br><span style="color:var(--amber)">Could not update: ${res.reason || res.error}. ${res.skipped ? 'Add a RATE_API_TOKEN to enable.' : ''}</span>`;
+  };
+}
+
+function flash(id, on, off){ const b=document.getElementById(id); b.textContent=on; setTimeout(()=>b.textContent=off,1500); }
+
+async function loadOrders() {
+  const { orders } = await api.get('/api/admin/orders');
+  document.querySelector('#ordersTbl tbody').innerHTML = orders.map(o => `
+    <tr>
+      <td><b>${o.ref}</b></td>
+      <td>${o.created_at.split(' ')[0]}</td>
+      <td>${o.user_name}<br><span class="muted" style="font-size:.78rem">${o.user_email}</span></td>
+      <td>${o.recipient_name}<br><span class="muted" style="font-size:.78rem">${o.recipient_province||''} ${o.recipient_phone||''}</span></td>
+      <td>${METHOD_ICONS[o.payout_method]||''} ${methodLabel(o.payout_method)}</td>
+      <td>${money(o.payout_amount,o.payout_currency)}</td>
+      <td>${money(o.total_charge)}</td>
+      <td>${o.payin_method||'—'}</td>
+      <td><span class="pill ${o.status}">${statusLabel(o.status)}</span></td>
+      <td>
+        <select class="fld" data-ref="${o.ref}" style="padding:6px 8px;font-size:.8rem">
+          ${STATUSES.map(st=>`<option value="${st}" ${st===o.status?'selected':''}>${statusLabel(st)}</option>`).join('')}
+        </select>
+      </td>
+    </tr>`).join('');
+
+  document.querySelectorAll('#ordersTbl [data-ref]').forEach(sel => sel.addEventListener('change', async () => {
+    await api.post(`/api/admin/orders/${sel.dataset.ref}/status`, { status: sel.value });
+    boot();
+  }));
+}
+
+async function loadRates() {
+  const { rates } = await api.get('/api/admin/rates');
+  document.querySelector('#ratesTbl tbody').innerHTML = rates.map(r => `
+    <tr data-m="${r.payout_method}">
+      <td>${METHOD_ICONS[r.payout_method]||''} ${methodLabel(r.payout_method)}</td>
+      <td><input class="fld" data-f="rate" value="${r.rate}" style="width:90px;padding:6px"></td>
+      <td><input class="fld" data-f="fee_pct" value="${r.fee_pct}" style="width:70px;padding:6px"></td>
+      <td><input class="fld" data-f="fee_fixed" value="${r.fee_fixed}" style="width:70px;padding:6px"></td>
+      <td><input class="fld" data-f="min_send" value="${r.min_send}" style="width:70px;padding:6px"></td>
+      <td><input class="fld" data-f="max_send" value="${r.max_send}" style="width:80px;padding:6px"></td>
+      <td><input class="fld" data-f="eta" value="${r.eta||''}" style="width:130px;padding:6px"></td>
+      <td><input type="checkbox" data-f="active" ${r.active?'checked':''}></td>
+      <td><button class="btn btn-primary btn-sm" data-save>Save</button></td>
+    </tr>`).join('');
+
+  document.querySelectorAll('#ratesTbl [data-save]').forEach(btn => btn.addEventListener('click', async () => {
+    const tr = btn.closest('tr'); const body = {};
+    tr.querySelectorAll('[data-f]').forEach(el => { body[el.dataset.f] = el.type==='checkbox' ? el.checked : el.value; });
+    await api.post(`/api/admin/rates/${tr.dataset.m}`, body);
+    btn.textContent = 'Saved ✓'; setTimeout(()=>btn.textContent='Save', 1500);
+  }));
+}
+</script>
+</body>
+</html>
