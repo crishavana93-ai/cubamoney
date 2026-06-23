@@ -1,6 +1,13 @@
 // Shared helpers used across pages.
 import { t, getLang, setLang, applyI18n } from '/js/i18n.js';
 
+// Mark JS active so reveal elements are hidden only when we can animate them in.
+document.documentElement.classList.add('js');
+// Safety net: if motion never initializes, reveal everything after a moment.
+setTimeout(() => {
+  if (!window.__motionInit) document.querySelectorAll('.reveal:not(.in)').forEach((e) => e.classList.add('in'));
+}, 2500);
+
 export { t, getLang, setLang, applyI18n };
 
 export const api = {
@@ -90,6 +97,51 @@ export async function renderHeader() {
   });
   document.querySelectorAll('#langSwitch button').forEach((b) =>
     b.addEventListener('click', () => switchLang(b.dataset.lang)));
+
+  // sticky-header state on scroll
+  const header = el.querySelector('.site-header');
+  const onScroll = () => header && header.classList.toggle('scrolled', window.scrollY > 40);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+}
+
+// Scroll-reveal, count-up, and parallax. Call after content is rendered.
+export function initMotion() {
+  window.__motionInit = true;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal:not(.in)').forEach((el) => io.observe(el));
+
+  // count-up numbers ([data-count])
+  document.querySelectorAll('[data-count]:not([data-counted])').forEach((el) => {
+    const target = parseFloat(el.dataset.count);
+    if (!Number.isFinite(target)) return;
+    el.setAttribute('data-counted', '1');
+    const suffix = el.dataset.suffix || '';
+    const dur = 1400; const start = performance.now();
+    const step = (t) => {
+      const p = Math.min((t - start) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(target * eased).toLocaleString() + suffix;
+      if (p < 1) requestAnimationFrame(step);
+    };
+    const once = new IntersectionObserver((ents) => {
+      ents.forEach((en) => { if (en.isIntersecting) { requestAnimationFrame(step); once.disconnect(); } });
+    }, { threshold: 0.5 });
+    once.observe(el);
+  });
+
+  // light parallax on [data-parallax]
+  const px = document.querySelectorAll('[data-parallax]');
+  if (px.length) {
+    window.addEventListener('scroll', () => {
+      const y = window.scrollY;
+      px.forEach((el) => { const s = parseFloat(el.dataset.parallax) || 0.2; el.style.transform = `translateY(${y * s}px)`; });
+    }, { passive: true });
+  }
 }
 
 function switchLang(l) {

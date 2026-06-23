@@ -24,6 +24,10 @@ const DICT = {
     'hero.p1': 'MLC, entrega de USD en efectivo, pesos cubanos y recarga Cubacel',
     'hero.p2': 'Tarifas transparentes — ve el monto exacto que reciben',
     'hero.p3': 'Tu primer envío, sin comisión',
+    'hero.title2cine': 'con alma',
+    'hero.scroll': 'desliza',
+    'story.title': 'Cada envío es un abrazo que cruza el mar',
+    'story.body': 'Detrás de cada transferencia hay una familia esperando. Hacemos que tu apoyo llegue rápido, seguro y completo — para que lo único que sientan sea tu cariño, no las comisiones.',
 
     // calculator
     'calc.title': 'Calcula tu envío',
@@ -229,6 +233,10 @@ const DICT = {
     'hero.p1': 'MLC, USD cash delivery, Cuban pesos & Cubacel top-up',
     'hero.p2': 'Transparent fees — see the exact amount they receive',
     'hero.p3': 'Your first transfer fee is on us',
+    'hero.title2cine': 'with heart',
+    'hero.scroll': 'scroll',
+    'story.title': 'Every transfer is a hug across the sea',
+    'story.body': "Behind every transfer is a family waiting. We make your support arrive fast, secure and whole — so all they feel is your love, not the fees.",
 
     'calc.title': 'Calculate your transfer', 'calc.send': 'You send', 'calc.receiveVia': 'They receive via',
     'calc.enterAmount': 'Enter an amount to see the quote…', 'calc.transferAmount': 'Transfer amount', 'calc.fee': 'Fee',
