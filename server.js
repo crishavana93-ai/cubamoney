@@ -10,6 +10,7 @@ import { ensureSeed } from './src/seed.js';
 import { signToken, attachUser, requireAuth, requireAdmin } from './src/auth.js';
 import { quote } from './src/quote.js';
 import { updateRates, getMarginPct, setSetting, getSetting } from './src/rates-update.js';
+import { ensureLedgerSeed, balances, reconciliation, recentTx, applyLedgerForStatus } from './src/ledger.js';
 import {
   createOrder as ppCreate,
   captureOrder as ppCapture,
@@ -49,6 +50,7 @@ app.use(attachUser);
 
 // Seed default rates + admin on boot.
 ensureSeed();
+ensureLedgerSeed();
 
 /* ───────────────────────── helpers ───────────────────────── */
 const PROVINCES = [
@@ -250,6 +252,7 @@ app.post('/api/orders/:ref/paypal/capture', requireAuth, async (req, res) => {
     if (result.status === 'COMPLETED') {
       db.prepare("UPDATE orders SET status = 'paid', paypal_capture_id = ?, updated_at = datetime('now') WHERE id = ?")
         .run(result.captureId, order.id);
+      applyLedgerForStatus(db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id), 'paid');
       return res.json({ status: 'paid', order: getOwnedOrder(order.ref, req.user.id) });
     }
     res.status(202).json({ status: result.status });
@@ -303,7 +306,17 @@ app.post('/api/admin/orders/:ref/status', requireAuth, requireAdmin, (req, res) 
   if (!order) return res.status(404).json({ error: 'Order not found.' });
   db.prepare("UPDATE orders SET status = ?, notes = COALESCE(?, notes), updated_at = datetime('now') WHERE id = ?")
     .run(status, notes ?? null, order.id);
-  res.json({ order: db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id) });
+  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id);
+  applyLedgerForStatus(updated, status);
+  res.json({ order: updated });
+});
+
+// Ledger + reconciliation
+app.get('/api/admin/ledger', requireAuth, requireAdmin, (req, res) => {
+  res.json({ accounts: balances(), reconciliation: reconciliation() });
+});
+app.get('/api/admin/ledger/tx', requireAuth, requireAdmin, (req, res) => {
+  res.json({ transactions: recentTx(Number(req.query.limit) || 25) });
 });
 
 app.get('/api/admin/rates', requireAuth, requireAdmin, (req, res) => {
