@@ -26,6 +26,10 @@ const DICT = {
     'hero.p3': 'Tu primer envío, sin comisión',
     'hero.title2cine': 'con alma',
     'hero.scroll': 'desliza',
+    'flow.k1': 'Tú envías', 'flow.d1': 'Desde $10, con PayPal o transferencia',
+    'flow.k2': 'Cruza el mar', 'flow.d2': 'Rápido, seguro y con seguimiento',
+    'flow.k3': 'Lo reciben', 'flow.d3': 'MLC, efectivo, CUP o recarga Cubacel',
+    'marquee.delivery': 'Entrega a domicilio', 'marquee.secure': 'Cifrado seguro', 'marquee.fast': 'En minutos',
     'story.title': 'Cada envío es un abrazo que cruza el mar',
     'story.body': 'Detrás de cada transferencia hay una familia esperando. Hacemos que tu apoyo llegue rápido, seguro y completo — para que lo único que sientan sea tu cariño, no las comisiones.',
 
@@ -235,6 +239,10 @@ const DICT = {
     'hero.p3': 'Your first transfer fee is on us',
     'hero.title2cine': 'with heart',
     'hero.scroll': 'scroll',
+    'flow.k1': 'You send', 'flow.d1': 'From $10, with PayPal or bank transfer',
+    'flow.k2': 'Across the sea', 'flow.d2': 'Fast, secure and trackable',
+    'flow.k3': 'They receive', 'flow.d3': 'MLC, cash, CUP or Cubacel top-up',
+    'marquee.delivery': 'Home delivery', 'marquee.secure': 'Secure encryption', 'marquee.fast': 'Within minutes',
     'story.title': 'Every transfer is a hug across the sea',
     'story.body': "Behind every transfer is a family waiting. We make your support arrive fast, secure and whole — so all they feel is your love, not the fees.",
 

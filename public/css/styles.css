@@ -306,6 +306,38 @@ details.card-box[open] { border-color: rgba(243,177,78,.35); }
 
 .hidden { display: none !important; }
 
+/* ───── Lenis smooth scroll ───── */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+/* ───── scrollytelling hero (GSAP pinned money-flow scene) ───── */
+.hero-scrolly { position: relative; }
+.hero-stage { height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; gap: 2.2rem; }
+.hero-head { text-align: center; max-width: 16ch; }
+.hero-head h1 { text-shadow: 0 4px 40px rgba(0,0,0,.5); }
+.hero-head h1 em { font-style: italic; color: var(--gold); }
+.word { display: inline-block; overflow: hidden; padding-bottom: .06em; }
+.word > span { display: inline-block; }
+.gsap-ready .hero-head .word > span { transform: translateY(115%); will-change: transform; }
+.hero-scene { width: min(1080px, 94vw); display: block; }
+.phases { position: relative; height: 2.6em; width: 100%; max-width: 640px; }
+.phase { position: absolute; inset: 0; text-align: center; }
+.phase .k { font-size: .74rem; letter-spacing: .3em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+.phase .d { color: var(--cream); font-family: var(--ff-disp); font-size: 1.35rem; }
+.gsap-ready .phase { opacity: 0; }
+.gsap-ready .phase:first-child { opacity: 1; }
+.hero-scrolly .hero-cta { position: absolute; bottom: 92px; left: 50%; transform: translateX(-50%); display: flex; gap: 14px; z-index: 5; }
+
+/* ───── marquee / ticker ───── */
+.marquee { overflow: hidden; border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); padding: 22px 0; background: var(--noche-2); -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+.marquee-track { display: flex; gap: 3.2rem; width: max-content; animation: marquee 34s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+.marquee-item { display: inline-flex; align-items: center; gap: .7rem; font-family: var(--ff-disp); font-size: 1.5rem; color: var(--sand); white-space: nowrap; }
+.marquee-item .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+@keyframes marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .marquee-track { animation: none; } }
+
 /* ───── scroll reveal (hidden only when JS is active, so no-JS shows everything) ───── */
 .reveal { transition: opacity .9s cubic-bezier(.2,.7,.3,1), transform .9s cubic-bezier(.2,.7,.3,1); }
 .js .reveal { opacity: 0; transform: translateY(34px); }

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CubaRemesa — Envía dinero a Cuba, con alma</title>
 <meta name="description" content="Envía dinero a Cuba en minutos. Paga con PayPal o transferencia bancaria. Tu familia recibe MLC, USD en efectivo, pesos cubanos o recarga Cubacel.">
+<meta name="view-transition" content="same-origin">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -13,127 +14,88 @@
 <body>
 <div id="header"></div>
 
-<!-- ======================= HERO ======================= -->
-<section class="hero">
-  <div class="hero-media">
-    <!-- Hand-built cinematic Havana sunset (fallback). A photo at /img/hero.jpg overlays it when present. -->
-    <svg class="hero-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<!-- ======================= HERO (pinned money-flow scrollytelling) ======================= -->
+<section class="hero-scrolly">
+  <div class="hero-stage">
+    <div class="hero-head"><h1></h1></div>
+
+    <svg class="hero-scene" viewBox="0 0 1200 560" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#160d0a"/>
-          <stop offset="38%" stop-color="#5b2812"/>
-          <stop offset="60%" stop-color="#b8481c"/>
-          <stop offset="76%" stop-color="#f0a847"/>
-          <stop offset="100%" stop-color="#ffd488"/>
-        </linearGradient>
-        <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#f0b35a"/>
-          <stop offset="22%" stop-color="#9a5a2e"/>
-          <stop offset="60%" stop-color="#2a4a4a"/>
-          <stop offset="100%" stop-color="#13201f"/>
-        </linearGradient>
-        <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#fff1cf" stop-opacity="1"/>
-          <stop offset="35%" stop-color="#ffd27a" stop-opacity="0.7"/>
-          <stop offset="100%" stop-color="#ffd27a" stop-opacity="0"/>
+        <radialGradient id="bgGlow" cx="50%" cy="45%" r="55%">
+          <stop offset="0%" stop-color="#e07a35" stop-opacity="0.20"/>
+          <stop offset="100%" stop-color="#e07a35" stop-opacity="0"/>
         </radialGradient>
-        <linearGradient id="reflect" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ffe6b0" stop-opacity="0.85"/>
-          <stop offset="100%" stop-color="#ffe6b0" stop-opacity="0"/>
+        <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#f3b14e"/>
+          <stop offset="60%" stop-color="#ffcf7a"/>
+          <stop offset="100%" stop-color="#2bb3a3"/>
         </linearGradient>
+        <radialGradient id="dotGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fff1cf" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#ffcf7a" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="famGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#f3b14e" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="#f3b14e" stop-opacity="0"/>
+        </radialGradient>
       </defs>
 
-      <!-- sky + sun -->
-      <rect x="0" y="0" width="1600" height="540" fill="url(#sky)"/>
-      <circle cx="1120" cy="300" r="240" fill="url(#sunGlow)">
-        <animate attributeName="r" values="240;265;240" dur="7s" repeatCount="indefinite"/>
-      </circle>
-      <circle cx="1120" cy="320" r="92" fill="#ffe9b8"/>
+      <ellipse cx="600" cy="270" rx="580" ry="250" fill="url(#bgGlow)"/>
 
-      <!-- distant city silhouette on the horizon -->
-      <g fill="#1d100a" opacity="0.92">
-        <rect x="0" y="468" width="180" height="72"/>
-        <rect x="180" y="486" width="120" height="54"/>
-        <rect x="300" y="452" width="90" height="88"/>
-        <rect x="380" y="476" width="150" height="64"/>
-        <rect x="520" y="462" width="70" height="78"/>
-        <rect x="590" y="488" width="130" height="52"/>
-        <rect x="980" y="470" width="120" height="70"/>
-        <rect x="1100" y="452" width="80" height="88"/>
-        <rect x="1180" y="482" width="160" height="58"/>
-        <rect x="1340" y="466" width="110" height="74"/>
-        <rect x="1450" y="486" width="150" height="54"/>
-      </g>
-      <!-- a few lit windows -->
-      <g fill="#ffcf7a" opacity="0.8">
-        <rect x="330" y="470" width="6" height="9"/><rect x="350" y="486" width="6" height="9"/>
-        <rect x="1120" y="470" width="6" height="9"/><rect x="1140" y="490" width="6" height="9"/>
-        <rect x="40" y="486" width="6" height="9"/><rect x="1380" y="486" width="6" height="9"/>
+      <!-- family glow behind receiving phone -->
+      <circle id="familyGlow" cx="1000" cy="360" r="120" fill="url(#famGlow)"/>
+
+      <!-- Cuba island lights up on arrival -->
+      <path id="cubaGlow" d="M905,150 q40,-20 92,-8 q40,10 20,30 q-40,22 -92,10 q-38,-12 -20,-32 z" fill="#f3b14e"/>
+
+      <!-- the money-flow arc -->
+      <path id="flowArc" d="M214,372 C420,150 800,132 992,196" fill="none" stroke="url(#arcGrad)" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- sender phone -->
+      <g class="phone">
+        <rect x="120" y="300" width="88" height="176" rx="16" fill="#1d120c" stroke="#3a2718" stroke-width="1.5"/>
+        <rect x="128" y="312" width="72" height="152" rx="8" fill="#2a1a10"/>
+        <circle cx="164" cy="388" r="15" fill="#f3b14e" opacity="0.85"/>
       </g>
 
-      <!-- sea -->
-      <rect x="0" y="540" width="1600" height="360" fill="url(#sea)"/>
-      <!-- sun reflection on water -->
-      <rect x="1070" y="540" width="100" height="300" fill="url(#reflect)" opacity="0.7">
-        <animate attributeName="opacity" values="0.55;0.8;0.55" dur="5s" repeatCount="indefinite"/>
-      </rect>
-      <!-- shimmer lines -->
-      <g stroke="#ffe6b0" stroke-width="2" opacity="0.45">
-        <line x1="1040" y1="585" x2="1200" y2="585"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="3.5s" repeatCount="indefinite"/></line>
-        <line x1="1060" y1="620" x2="1180" y2="620"><animate attributeName="opacity" values="0.5;0.15;0.5" dur="4.2s" repeatCount="indefinite"/></line>
-        <line x1="1020" y1="660" x2="1220" y2="660"><animate attributeName="opacity" values="0.25;0.55;0.25" dur="3s" repeatCount="indefinite"/></line>
+      <!-- receiving phone -->
+      <g class="phone">
+        <rect x="956" y="300" width="88" height="176" rx="16" fill="#1d120c" stroke="#3a2718" stroke-width="1.5"/>
+        <rect x="964" y="312" width="72" height="152" rx="8" fill="#2a1a10"/>
+        <path d="M986 388 l10 10 l20 -22" fill="none" stroke="#2bb3a3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
       </g>
 
-      <!-- foreground seawall -->
-      <rect x="0" y="812" width="1600" height="120" fill="#140d0a"/>
-      <rect x="0" y="800" width="1600" height="18" fill="#21130c"/>
-      <!-- classic car silhouette -->
-      <g fill="#0d0805">
-        <path d="M520 800 q12 -46 70 -50 l150 -6 q40 -30 96 -30 l150 0 q52 0 84 34 l86 6 q40 6 40 42 l0 4 -676 0 z"/>
-        <circle cx="640" cy="802" r="30" fill="#0d0805"/>
-        <circle cx="1000" cy="802" r="30" fill="#0d0805"/>
-      </g>
-      <!-- palm trees -->
-      <g fill="#0d0805">
-        <rect x="150" y="640" width="14" height="180"/>
-        <path d="M157 642 q-70 -34 -120 -16 q60 -2 118 26 q-44 -56 -96 -64 q58 16 100 56 q-10 -64 22 -104 q4 56 -8 102 q44 -44 108 -50 q-58 24 -110 66 q70 -10 120 18 q-66 -6 -134 18z"/>
-        <rect x="1452" y="600" width="16" height="220"/>
-        <path d="M1460 602 q80 -40 138 -18 q-70 0 -134 30 q52 -64 112 -72 q-66 18 -114 64 q12 -72 -24 -118 q-6 64 8 116 q-50 -50 -122 -56 q66 26 124 74 q-80 -10 -136 22 q74 -8 148 18z"/>
+      <!-- travelling value -->
+      <g id="flowDot">
+        <circle r="22" fill="url(#dotGlow)"/>
+        <circle r="8" fill="#fff1cf"/>
       </g>
     </svg>
-    <div class="hero-photo" style="--hero-img:url('/img/hero.jpg')"></div>
-  </div>
 
-  <div class="container hero-content">
-    <div class="flag-bar">
-      <span style="background:var(--teal)"></span>
-      <span style="background:var(--cream)"></span>
-      <span style="background:var(--rojo)"></span>
+    <div class="phases">
+      <div class="phase"><div class="k" data-i18n="flow.k1"></div><div class="d" data-i18n="flow.d1"></div></div>
+      <div class="phase"><div class="k" data-i18n="flow.k2"></div><div class="d" data-i18n="flow.d2"></div></div>
+      <div class="phase"><div class="k" data-i18n="flow.k3"></div><div class="d" data-i18n="flow.d3"></div></div>
     </div>
-    <h1><span data-i18n="hero.title1"></span> <span style="color:var(--gold);font-style:italic" data-i18n="hero.title2cine"></span></h1>
-    <p class="lead" data-i18n="hero.lead"></p>
-    <ul class="hero-points">
-      <li><span class="tick">✦</span> <span data-i18n="hero.p1"></span></li>
-      <li><span class="tick">✦</span> <span data-i18n="hero.p2"></span></li>
-      <li><span class="tick">✦</span> <span data-i18n="hero.p3"></span></li>
-    </ul>
+
     <div class="hero-cta">
       <a class="btn btn-primary" href="/send.html" data-i18n="cta.btn"></a>
       <a class="btn btn-ghost" href="#calc" data-i18n="calc.title"></a>
     </div>
   </div>
-
-  <div class="scroll-cue"><div class="dot"></div><span data-i18n="hero.scroll"></span></div>
 </section>
 
+<!-- marquee ticker -->
+<div class="marquee"><div class="marquee-track" id="marqueeTrack"></div></div>
+
 <!-- ======================= CALCULATOR ======================= -->
-<section class="block" id="calc" style="padding-top:90px">
+<section class="block" id="calc" style="padding-top:96px">
   <div class="container" style="max-width:560px">
     <div class="section-head reveal" style="margin-bottom:32px">
       <div class="eyebrow" data-i18n="calc.title"></div>
       <h2 data-i18n="methods.title"></h2>
     </div>
-    <div class="calc reveal d1">
+    <div class="calc reveal">
       <div class="field">
         <label data-i18n="calc.send"></label>
         <div class="amount-row"><input id="amount" type="number" inputmode="decimal" value="100" min="1" step="1"><span class="cur">USD</span></div>
@@ -162,7 +124,7 @@
   </div>
 </section>
 
-<!-- ======================= STORY (text + image) ======================= -->
+<!-- ======================= STORY ======================= -->
 <section class="block" style="padding-top:0">
   <div class="container">
     <div class="story">
@@ -172,7 +134,7 @@
         <p data-i18n="story.body"></p>
         <div style="margin-top:22px"><a class="btn btn-ghost" href="/send.html" data-i18n="how.cta"></a></div>
       </div>
-      <div class="media reveal d1" style="--story-img:url('/img/family.jpg')"></div>
+      <div class="media reveal" style="--story-img:url('/img/family.jpg')"></div>
     </div>
   </div>
 </section>
@@ -186,14 +148,14 @@
     </div>
     <div class="steps">
       <div class="step reveal"><div class="num">1</div><h3 data-i18n="how.s1t"></h3><p data-i18n="how.s1p"></p></div>
-      <div class="step reveal d1"><div class="num">2</div><h3 data-i18n="how.s2t"></h3><p data-i18n="how.s2p"></p></div>
-      <div class="step reveal d2"><div class="num">3</div><h3 data-i18n="how.s3t"></h3><p data-i18n="how.s3p"></p></div>
-      <div class="step reveal d3"><div class="num">4</div><h3 data-i18n="how.s4t"></h3><p data-i18n="how.s4p"></p></div>
+      <div class="step reveal"><div class="num">2</div><h3 data-i18n="how.s2t"></h3><p data-i18n="how.s2p"></p></div>
+      <div class="step reveal"><div class="num">3</div><h3 data-i18n="how.s3t"></h3><p data-i18n="how.s3p"></p></div>
+      <div class="step reveal"><div class="num">4</div><h3 data-i18n="how.s4t"></h3><p data-i18n="how.s4p"></p></div>
     </div>
   </div>
 </section>
 
-<!-- ======================= TRUST BAND (image) ======================= -->
+<!-- ======================= TRUST BAND ======================= -->
 <section class="band">
   <div class="band-bg" style="--band-img:url('/img/malecon.jpg')" data-parallax="0.06"></div>
   <div class="container">
@@ -204,14 +166,14 @@
     </div>
     <div class="stats" style="margin-bottom:48px">
       <div class="stat reveal"><div class="n"><span data-count="5">5</span></div><div class="l" data-i18n="stats.ways"></div></div>
-      <div class="stat reveal d1"><div class="n" data-i18n="stats.minsValue"></div><div class="l" data-i18n="stats.mins"></div></div>
-      <div class="stat reveal d2"><div class="n"><span data-count="16">16</span></div><div class="l" data-i18n="stats.provinces"></div></div>
-      <div class="stat reveal d3"><div class="n">24/7</div><div class="l" data-i18n="stats.support"></div></div>
+      <div class="stat reveal"><div class="n" data-i18n="stats.minsValue"></div><div class="l" data-i18n="stats.mins"></div></div>
+      <div class="stat reveal"><div class="n"><span data-count="16">16</span></div><div class="l" data-i18n="stats.provinces"></div></div>
+      <div class="stat reveal"><div class="n">24/7</div><div class="l" data-i18n="stats.support"></div></div>
     </div>
     <div class="features">
       <div class="feature reveal"><div class="ico">🔒</div><h3 data-i18n="trust.f1t"></h3><p data-i18n="trust.f1p"></p></div>
-      <div class="feature reveal d1"><div class="ico">🧾</div><h3 data-i18n="trust.f2t"></h3><p data-i18n="trust.f2p"></p></div>
-      <div class="feature reveal d2"><div class="ico">🇨🇺</div><h3 data-i18n="trust.f3t"></h3><p data-i18n="trust.f3p"></p></div>
+      <div class="feature reveal"><div class="ico">🧾</div><h3 data-i18n="trust.f2t"></h3><p data-i18n="trust.f2p"></p></div>
+      <div class="feature reveal"><div class="ico">🇨🇺</div><h3 data-i18n="trust.f3t"></h3><p data-i18n="trust.f3p"></p></div>
     </div>
   </div>
 </section>
@@ -224,7 +186,7 @@
       <h2 data-i18n="fees.title"></h2>
       <p data-i18n="fees.sub"></p>
     </div>
-    <div class="card-box reveal d1" style="overflow-x:auto">
+    <div class="card-box reveal" style="overflow-x:auto">
       <table class="tbl" id="feesTable">
         <thead><tr>
           <th data-i18n="fees.method"></th><th data-i18n="fees.receiveIn"></th>
@@ -257,9 +219,15 @@
 
 <div id="footer"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MotionPathPlugin.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+
 <script type="module">
-import { api, METHOD_ICONS, money, t, renderHeader, renderFooter, applyI18n, initMotion } from '/js/app.js';
+import { api, METHOD_ICONS, money, t, getLang, renderHeader, renderFooter, applyI18n, initMotion } from '/js/app.js';
 import { methodLabel, methodEta } from '/js/i18n.js';
+import { initMotionPro, initReveals } from '/js/motion.js';
 
 let RATES = [];
 
@@ -272,18 +240,46 @@ async function boot() {
   document.getElementById('method').innerHTML = rates.map(r => `<option value="${r.payout_method}"></option>`).join('');
   document.getElementById('amount').addEventListener('input', updateQuote);
   document.getElementById('method').addEventListener('change', updateQuote);
-  document.addEventListener('langchange', renderDynamic);
+  document.addEventListener('langchange', () => {
+    renderHeadline(); renderMarquee(); renderDynamic();
+    if (window.gsap && window.ScrollTrigger) initReveals(); else initMotion();
+  });
+  renderHeadline();
+  renderMarquee();
   renderDynamic();
   updateQuote();
-  initMotion();
+
+  // Motion: GSAP/Lenis when available, else IntersectionObserver fallback.
+  if (window.gsap && window.ScrollTrigger) initMotionPro();
+  else initMotion();
+  window.__headlineReady = true;
+}
+
+function renderHeadline() {
+  const h = document.querySelector('.hero-head h1');
+  h.innerHTML = `${t('hero.title1')} <em>${t('hero.title2cine')}</em>`;
+  // If GSAP already ran once, re-split for the new language.
+  if (window.__headlineReady && window.gsap) {
+    import('/js/motion.js').then(m => m.initHeadline());
+  }
+}
+
+function renderMarquee() {
+  const items = [
+    ...RATES.map(r => methodLabel(r.payout_method)),
+    'PayPal', 'IBAN / SEPA', t('marquee.delivery'), t('marquee.secure'), t('marquee.fast'),
+  ];
+  const html = items.map(x => `<span class="marquee-item"><span class="dot"></span>${x}</span>`).join('');
+  document.getElementById('marqueeTrack').innerHTML = html + html; // duplicate for seamless loop
 }
 
 function renderDynamic() {
+  applyI18n();
   const sel = document.getElementById('method');
   [...sel.options].forEach(o => { o.textContent = methodLabel(o.value); });
 
-  document.getElementById('methodCards').innerHTML = RATES.map((r, i) => `
-    <div class="pcard reveal d${(i % 4)}">
+  document.getElementById('methodCards').innerHTML = RATES.map(r => `
+    <div class="pcard reveal">
       <div class="ico">${METHOD_ICONS[r.payout_method] || '💸'}</div>
       <h3>${methodLabel(r.payout_method)}</h3>
       <p>${t('methods.receiveIn')} <b style="color:var(--cream)">${r.payout_currency}</b>. ${t('methods.min')} $${r.min_send} · ${t('methods.max')} $${r.max_send}.</p>
@@ -307,7 +303,6 @@ function renderDynamic() {
     </details>`).join('');
 
   updateQuote();
-  initMotion();
 }
 
 function feeText(r) {
