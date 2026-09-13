@@ -174,6 +174,7 @@ const DICT = {
     'wiz.viewTransfers': 'Ver mis envíos',
     'wiz.errName': 'Ingresa el nombre del destinatario o elige uno guardado.',
     'wiz.errDetails': 'Completa todos los datos de pago del destinatario.',
+    'wiz.rateLocked': 'Tasa bloqueada', 'wiz.expiresIn': 'vence en', 'wiz.relocked': 'La tasa venció — la actualizamos, revisa y confirma de nuevo.',
     'wiz.doneBank': 'Estamos esperando tu transferencia bancaria para el pedido {ref}. Una vez recibida, procesaremos el pago y te mantendremos informado.',
     'wiz.donePaypal': 'Pago recibido para el pedido {ref}. Ahora estamos procesando el pago a tu destinatario en Cuba.',
 
@@ -316,6 +317,7 @@ const DICT = {
     'wiz.madeTransfer': "I've made the transfer", 'wiz.doneTitle': 'Transfer created', 'wiz.viewTransfers': 'View my transfers',
     'wiz.errName': 'Please enter the recipient name or pick a saved recipient.',
     'wiz.errDetails': 'Please complete all recipient payout details.',
+    'wiz.rateLocked': 'Rate locked', 'wiz.expiresIn': 'expires in', 'wiz.relocked': 'The rate expired — we refreshed it, please review and confirm again.',
     'wiz.doneBank': "We're waiting for your bank transfer for order {ref}. Once received, we'll process the payout and keep you posted.",
     'wiz.donePaypal': "Payment received for order {ref}. We're now processing the payout to your recipient in Cuba.",
 

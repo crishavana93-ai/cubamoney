@@ -46,6 +46,16 @@
     <div id="ledgerTx" style="font-size:.85rem"></div>
   </div>
 
+  <!-- Payout partner (mock) -->
+  <h2 style="font-size:1.3rem;margin-top:36px">Payouts · Cuba partner (simulated)</h2>
+  <div class="card-box" style="overflow-x:auto">
+    <p class="muted" style="margin-top:0;font-size:.85rem">Auto-advances queued → sent → delivered. Use the buttons to step or fail a payout manually.</p>
+    <table class="tbl" id="payoutsTbl">
+      <thead><tr><th>Payout</th><th>Order</th><th>Method</th><th>Amount</th><th>Status</th><th>Partner ref</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
   <h2 style="font-size:1.3rem;margin-top:36px">Orders</h2>
   <div class="card-box" style="overflow-x:auto">
     <table class="tbl" id="ordersTbl">
@@ -86,8 +96,28 @@ async function boot() {
     <div class="stat"><div class="n">${s.users}</div><div class="l">Users</div></div>`;
   await loadRateSettings();
   await loadLedger();
+  await loadPayouts();
   await loadOrders();
   await loadRates();
+}
+
+async function loadPayouts() {
+  const { payouts } = await api.get('/api/admin/payouts');
+  const pillCls = { queued: 'pending_payment', sent: 'processing', delivered: 'completed', failed: 'failed' };
+  document.querySelector('#payoutsTbl tbody').innerHTML = payouts.length ? payouts.map(p => `
+    <tr>
+      <td><b>${p.ref}</b></td>
+      <td>${p.order_ref}</td>
+      <td>${METHOD_ICONS[p.method]||''} ${methodLabel(p.method)}</td>
+      <td>${money(p.amount, p.currency)}</td>
+      <td><span class="pill ${pillCls[p.status]||''}">${p.status}</span></td>
+      <td class="muted">${p.partner_ref || '—'}</td>
+      <td style="white-space:nowrap">
+        ${['queued','sent'].includes(p.status) ? `<button class="btn btn-ghost btn-sm" data-adv="${p.ref}">Advance</button> <button class="btn btn-ghost btn-sm" data-fail="${p.ref}">Fail</button>` : ''}
+      </td>
+    </tr>`).join('') : '<tr><td colspan="7" class="muted">No payouts yet — pay an order to hand it to the partner.</td></tr>';
+  document.querySelectorAll('[data-adv]').forEach(b => b.addEventListener('click', async () => { await api.post(`/api/admin/payouts/${b.dataset.adv}/advance`, {}); boot(); }));
+  document.querySelectorAll('[data-fail]').forEach(b => b.addEventListener('click', async () => { await api.post(`/api/admin/payouts/${b.dataset.fail}/fail`, {}); boot(); }));
 }
 
 async function loadLedger() {

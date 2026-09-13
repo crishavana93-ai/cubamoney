@@ -10,7 +10,11 @@ import { ensureSeed } from './src/seed.js';
 import { signToken, attachUser, requireAuth, requireAdmin } from './src/auth.js';
 import { quote } from './src/quote.js';
 import { updateRates, getMarginPct, setSetting, getSetting } from './src/rates-update.js';
-import { ensureLedgerSeed, balances, reconciliation, recentTx, applyLedgerForStatus } from './src/ledger.js';
+import { ensureLedgerSeed, balances, reconciliation, recentTx } from './src/ledger.js';
+import { createLockedQuote, getValidQuote, markQuoteUsed, QUOTE_TTL_MINUTES } from './src/quotes.js';
+import { setOrderStatus } from './src/orders.js';
+import { listPayouts, advancePayout, failPayout, getPayoutByRef, startPayoutWorker } from './src/payout-partner.js';
+import { getProvider, listProviders } from './src/payin/index.js';
 import {
   createOrder as ppCreate,
   captureOrder as ppCapture,
@@ -51,6 +55,8 @@ app.use(attachUser);
 // Seed default rates + admin on boot.
 ensureSeed();
 ensureLedgerSeed();
+// Migration: orders may reference a locked quote.
+try { db.exec('ALTER TABLE orders ADD COLUMN quote_ref TEXT'); } catch { /* already exists */ }
 
 /* ───────────────────────── helpers ───────────────────────── */
 const PROVINCES = [
@@ -142,10 +148,25 @@ app.get('/api/config', (req, res) => {
 });
 
 /* ───────────────────────── quote ───────────────────────── */
+// Indicative (live) quote — for the calculator.
 app.get('/api/quote', (req, res) => {
   const q = quote(req.query.amount, req.query.payout_method);
   if (!q) return res.status(404).json({ error: 'Unknown payout method.' });
   res.json(q);
+});
+
+// Locked quote — freezes the rate + fees for QUOTE_TTL_MINUTES; used once by an order.
+app.post('/api/quotes', (req, res) => {
+  const { send_amount, payout_method } = req.body || {};
+  const r = createLockedQuote(send_amount, payout_method, req.user ? req.user.id : null);
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json(r);
+});
+
+app.get('/api/quotes/:ref', (req, res) => {
+  const r = getValidQuote(req.params.ref);
+  if (r.error) return res.status(r.expired ? 410 : 404).json({ error: r.error, expired: Boolean(r.expired) });
+  res.json(r);
 });
 
 /* ───────────────────────── recipients ───────────────────────── */
@@ -172,14 +193,22 @@ app.delete('/api/recipients/:id', requireAuth, (req, res) => {
 
 /* ───────────────────────── orders ───────────────────────── */
 app.post('/api/orders', requireAuth, (req, res) => {
-  const { recipient_id, send_amount, payout_method } = req.body || {};
+  const { recipient_id, send_amount, payout_method, quote_ref } = req.body || {};
   const recipient = db.prepare('SELECT * FROM recipients WHERE id = ? AND user_id = ?').get(recipient_id, req.user.id);
   if (!recipient) return res.status(400).json({ error: 'Recipient not found.' });
 
-  const q = quote(send_amount, payout_method);
-  if (!q) return res.status(400).json({ error: 'Unknown payout method.' });
-  if (q.errors && q.errors.length) return res.status(400).json({ error: q.errors.join(' ') });
-  if (recipient.payout_method !== payout_method)
+  // Prefer a locked quote (rate-lock). Fall back to live pricing if none given.
+  let q;
+  if (quote_ref) {
+    const r = getValidQuote(quote_ref);
+    if (r.error) return res.status(r.expired ? 410 : 400).json({ error: r.error, expired: Boolean(r.expired) });
+    q = r.quote;
+  } else {
+    q = quote(send_amount, payout_method);
+    if (!q) return res.status(400).json({ error: 'Unknown payout method.' });
+    if (q.errors && q.errors.length) return res.status(400).json({ error: q.errors.join(' ') });
+  }
+  if (recipient.payout_method !== q.payout_method)
     return res.status(400).json({ error: 'Recipient payout method does not match the selected product.' });
 
   const ref = makeRef();
@@ -187,13 +216,14 @@ app.post('/api/orders', requireAuth, (req, res) => {
     .prepare(
       `INSERT INTO orders
        (ref, user_id, recipient_id, send_currency, send_amount, fee, total_charge,
-        payout_method, payout_currency, fx_rate, payout_amount, status)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?, 'pending_payment')`
+        payout_method, payout_currency, fx_rate, payout_amount, status, quote_ref)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?, 'pending_payment', ?)`
     )
     .run(
       ref, req.user.id, recipient.id, 'USD', q.send_amount, q.fee, q.total_charge,
-      q.payout_method, q.payout_currency, q.fx_rate, q.payout_amount
+      q.payout_method, q.payout_currency, q.fx_rate, q.payout_amount, quote_ref || null
     );
+  if (quote_ref) markQuoteUsed(quote_ref, info.lastInsertRowid);
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid);
   res.json({ order });
 });
@@ -223,64 +253,54 @@ app.get('/api/orders/:ref', requireAuth, (req, res) => {
   res.json({ order: o });
 });
 
-/* ── PayPal pay-in ── */
-app.post('/api/orders/:ref/paypal/create', requireAuth, async (req, res) => {
+/* ── Pay-in orchestration (provider-agnostic) ── */
+async function payinCreate(req, res, providerId) {
+  const provider = getProvider(providerId);
+  if (!provider) return res.status(400).json({ error: 'Unknown pay-in provider.' });
   const order = getOwnedOrder(req.params.ref, req.user.id);
   if (!order) return res.status(404).json({ error: 'Order not found.' });
   if (order.status !== 'pending_payment')
     return res.status(400).json({ error: 'Order is not awaiting payment.' });
   try {
-    const pp = await ppCreate({
-      amount: order.total_charge,
-      reference: order.ref,
-      description: `CubaRemesa ${order.ref} → ${order.payout_method}`,
-    });
-    db.prepare("UPDATE orders SET paypal_order_id = ?, payin_method = 'paypal', updated_at = datetime('now') WHERE id = ?")
-      .run(pp.id, order.id);
-    res.json({ id: pp.id, demo: Boolean(pp.demo) });
+    const r = await provider.create(order);
+    const patch = { payin_method: provider.id };
+    if (provider.id === 'paypal') patch.paypal_order_id = r.providerRef;
+    const sets = Object.keys(patch).map((k) => `${k} = ?`).join(', ');
+    db.prepare(`UPDATE orders SET ${sets}, updated_at = datetime('now') WHERE id = ?`).run(...Object.values(patch), order.id);
+    if (r.status === 'awaiting_transfer') setOrderStatus(order.id, 'awaiting_transfer');
+    res.json({ provider: provider.id, id: r.providerRef, demo: Boolean(r.demo), instructions: r.instructions || null,
+               order: getOwnedOrder(order.ref, req.user.id) });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
-});
+}
 
-app.post('/api/orders/:ref/paypal/capture', requireAuth, async (req, res) => {
+async function payinConfirm(req, res, providerId) {
+  const provider = getProvider(providerId);
+  if (!provider) return res.status(400).json({ error: 'Unknown pay-in provider.' });
   const order = getOwnedOrder(req.params.ref, req.user.id);
   if (!order) return res.status(404).json({ error: 'Order not found.' });
-  if (!order.paypal_order_id) return res.status(400).json({ error: 'No PayPal order to capture.' });
   try {
-    const result = await ppCapture(order.paypal_order_id);
-    if (result.status === 'COMPLETED') {
-      db.prepare("UPDATE orders SET status = 'paid', paypal_capture_id = ?, updated_at = datetime('now') WHERE id = ?")
-        .run(result.captureId, order.id);
-      applyLedgerForStatus(db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id), 'paid');
-      return res.json({ status: 'paid', order: getOwnedOrder(order.ref, req.user.id) });
+    const r = await provider.confirm(order, req.body || {});
+    if (r.status === 'paid') {
+      const patch = provider.id === 'paypal' ? { paypal_capture_id: r.providerRef } : {};
+      const updated = setOrderStatus(order.id, 'paid', patch);   // ledger + payout hand-off
+      return res.json({ status: 'paid', order: { ...getOwnedOrder(order.ref, req.user.id), status: updated.status } });
     }
-    res.status(202).json({ status: result.status });
+    res.status(202).json({ status: r.status, raw: r.raw });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
-});
+}
 
-/* ── IBAN / bank transfer pay-in ── */
-app.post('/api/orders/:ref/iban', requireAuth, (req, res) => {
-  const order = getOwnedOrder(req.params.ref, req.user.id);
-  if (!order) return res.status(404).json({ error: 'Order not found.' });
-  if (order.status !== 'pending_payment')
-    return res.status(400).json({ error: 'Order is not awaiting payment.' });
-  db.prepare("UPDATE orders SET payin_method = 'iban', status = 'awaiting_transfer', updated_at = datetime('now') WHERE id = ?")
-    .run(order.id);
-  res.json({
-    order: getOwnedOrder(order.ref, req.user.id),
-    instructions: {
-      beneficiary: process.env.BANK_BENEFICIARY || 'CubaRemesa S.L.',
-      bank: process.env.BANK_NAME || 'Example Bank',
-      iban: process.env.BANK_IBAN || 'ES00 0000 0000 0000 0000 0000',
-      bic: process.env.BANK_BIC || 'EXAMPLEXXX',
-      amount: order.total_charge,
-      reference: order.ref,
-    },
-  });
-});
+app.get('/api/payin/providers', (req, res) => res.json({ providers: listProviders() }));
+app.post('/api/orders/:ref/payin/:provider/create',  requireAuth, (req, res) => payinCreate(req, res, req.params.provider));
+app.post('/api/orders/:ref/payin/:provider/confirm', requireAuth, (req, res) => payinConfirm(req, res, req.params.provider));
+
+// Legacy aliases (kept so the existing frontend keeps working).
+app.post('/api/orders/:ref/paypal/create',  requireAuth, (req, res) => payinCreate(req, res, 'paypal'));
+app.post('/api/orders/:ref/paypal/capture', requireAuth, (req, res) => payinConfirm(req, res, 'paypal'));
+app.post('/api/orders/:ref/iban',           requireAuth, (req, res) => payinCreate(req, res, 'bank_transfer'));
 
 /* ───────────────────────── admin ───────────────────────── */
 app.get('/api/admin/orders', requireAuth, requireAdmin, (req, res) => {
@@ -304,11 +324,24 @@ app.post('/api/admin/orders/:ref/status', requireAuth, requireAdmin, (req, res) 
   if (!VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
   const order = db.prepare('SELECT * FROM orders WHERE ref = ?').get(req.params.ref);
   if (!order) return res.status(404).json({ error: 'Order not found.' });
-  db.prepare("UPDATE orders SET status = ?, notes = COALESCE(?, notes), updated_at = datetime('now') WHERE id = ?")
-    .run(status, notes ?? null, order.id);
-  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id);
-  applyLedgerForStatus(updated, status);
+  if (notes) db.prepare('UPDATE orders SET notes = ? WHERE id = ?').run(notes, order.id);
+  const updated = setOrderStatus(order.id, status);   // ledger + payout hand-off on 'paid'
   res.json({ order: updated });
+});
+
+// Payout partner (mock) — visibility + manual stepping for demos
+app.get('/api/admin/payouts', requireAuth, requireAdmin, (req, res) => {
+  res.json({ payouts: listPayouts(Number(req.query.limit) || 50) });
+});
+app.post('/api/admin/payouts/:ref/advance', requireAuth, requireAdmin, (req, res) => {
+  const p = getPayoutByRef(req.params.ref);
+  if (!p) return res.status(404).json({ error: 'Payout not found.' });
+  res.json({ payout: advancePayout(p.id) });
+});
+app.post('/api/admin/payouts/:ref/fail', requireAuth, requireAdmin, (req, res) => {
+  const p = getPayoutByRef(req.params.ref);
+  if (!p) return res.status(404).json({ error: 'Payout not found.' });
+  res.json({ payout: failPayout(p.id, (req.body || {}).reason) });
 });
 
 // Ledger + reconciliation
@@ -400,8 +433,11 @@ function num(v, fallback) { const n = Number(v); return Number.isFinite(n) ? n :
 app.listen(PORT, () => {
   console.log(`\n  CubaRemesa running →  http://localhost:${PORT}`);
   console.log(`  PayPal: ${paypalConfigured ? `configured (${paypalEnv})` : 'DEMO mode (no credentials)'}`);
-  console.log(`  Rate source: ${process.env.RATE_API_TOKEN ? 'elTOQUE API configured' : 'not configured (rates stay manual)'}\n`);
+  console.log(`  Rate source: ${process.env.RATE_API_TOKEN ? 'elTOQUE API configured' : 'not configured (rates stay manual)'}`);
+  console.log(`  Quote rate-lock: ${QUOTE_TTL_MINUTES} min`);
   startRateScheduler();
+  startPayoutWorker();
+  console.log('');
 });
 
 // Refresh rates on boot (if stale) and then once a day, when a rate source is configured.

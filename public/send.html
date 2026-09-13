@@ -234,6 +234,7 @@ function bindNav() {
         const { recipient } = await api.post('/api/recipients', nr);
         state.recipientId = recipient.id;
       }
+      await lockQuote();
       renderReview(); gotoStep(3);
     } catch(e){ showMsg(e.message); }
   });
@@ -241,9 +242,14 @@ function bindNav() {
   $('toStep4').addEventListener('click', async () => {
     clearMsg();
     try {
-      const { order } = await api.post('/api/orders', {
-        recipient_id: state.recipientId, send_amount: state.amount, payout_method: state.method,
-      });
+      let order;
+      try {
+        ({ order } = await api.post('/api/orders', { recipient_id: state.recipientId, quote_ref: state.locked?.ref }));
+      } catch (e) {
+        // Rate lock expired → refresh the quote, ask the user to confirm again.
+        if (/expired/i.test(e.message)) { await lockQuote(); renderReview(); return showMsg(t('wiz.relocked'), 'info'); }
+        throw e;
+      }
       state.order = order;
       $('orderRef').textContent = order.ref;
       $('orderTotal').textContent = money(order.total_charge);
@@ -253,8 +259,15 @@ function bindNav() {
   });
 }
 
+// Lock the FX rate + fees for a short window (server-side quote object).
+async function lockQuote() {
+  const { quote } = await api.post('/api/quotes', { send_amount: state.amount, payout_method: state.method });
+  state.locked = quote;
+}
+
+let lockTimer;
 function renderReview() {
-  const q = state.quote;
+  const q = state.locked || state.quote;   // prefer the locked quote
   $('reviewBox').innerHTML = `
     <div class="breakdown">
       <div class="row"><span>${t('calc.send')}</span><span>${money(q.send_amount)}</span></div>
@@ -263,7 +276,19 @@ function renderReview() {
       <div class="row get"><span>${t('calc.theyReceive')}</span><span>${money(q.payout_amount, q.payout_currency)}</span></div>
       <div class="row"><span>${t('wiz.method')}</span><span>${methodLabel(q.payout_method)}</span></div>
       <div class="row"><span>${t('wiz.estDelivery')}</span><span>${methodEta(q.payout_method)}</span></div>
+      ${state.locked ? `<div class="row" style="margin-top:6px"><span>🔒 ${t('wiz.rateLocked')} · 1 USD = ${q.fx_rate} ${q.payout_currency}</span><span>${t('wiz.expiresIn')} <b id="lockTimer">--:--</b></span></div>` : ''}
     </div>`;
+  clearInterval(lockTimer);
+  if (state.locked) {
+    const tick = () => {
+      const ms = new Date(state.locked.expires_at).getTime() - Date.now();
+      const el = $('lockTimer'); if (!el) return clearInterval(lockTimer);
+      if (ms <= 0) { el.textContent = '0:00'; el.style.color = 'var(--rojo)'; return clearInterval(lockTimer); }
+      const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+      el.textContent = `${m}:${String(s).padStart(2, '0')}`;
+    };
+    tick(); lockTimer = setInterval(tick, 1000);
+  }
 }
 
 function setupPayment() {
