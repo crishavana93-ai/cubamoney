@@ -15,6 +15,7 @@ import { createLockedQuote, getValidQuote, markQuoteUsed, QUOTE_TTL_MINUTES } fr
 import { setOrderStatus } from './src/orders.js';
 import { listPayouts, advancePayout, failPayout, getPayoutByRef, startPayoutWorker } from './src/payout-partner.js';
 import { getProvider, listProviders } from './src/payin/index.js';
+import { listSuppliers, getSupplier, createSupplier, verifySupplier, ensureSupplierSeed } from './src/suppliers.js';
 import {
   createOrder as ppCreate,
   captureOrder as ppCapture,
@@ -55,6 +56,7 @@ app.use(attachUser);
 // Seed default rates + admin on boot.
 ensureSeed();
 ensureLedgerSeed();
+ensureSupplierSeed();
 // Migration: orders may reference a locked quote.
 try { db.exec('ALTER TABLE orders ADD COLUMN quote_ref TEXT'); } catch { /* already exists */ }
 
@@ -327,6 +329,19 @@ app.post('/api/admin/orders/:ref/status', requireAuth, requireAdmin, (req, res) 
   if (notes) db.prepare('UPDATE orders SET notes = ? WHERE id = ?').run(notes, order.id);
   const updated = setOrderStatus(order.id, status);   // ledger + payout hand-off on 'paid'
   res.json({ order: updated });
+});
+
+// Suppliers (beneficiaries we pay) + verification
+app.get('/api/admin/suppliers', requireAuth, requireAdmin, (req, res) => res.json({ suppliers: listSuppliers() }));
+app.post('/api/admin/suppliers', requireAuth, requireAdmin, (req, res) => {
+  const d = req.body || {};
+  if (!d.name || !d.bank_account) return res.status(400).json({ error: 'Name and bank account are required.' });
+  res.json({ supplier: createSupplier(d) });
+});
+app.post('/api/admin/suppliers/:id/verify', requireAuth, requireAdmin, async (req, res) => {
+  if (!getSupplier(req.params.id)) return res.status(404).json({ error: 'Supplier not found.' });
+  try { res.json({ supplier: await verifySupplier(req.params.id) }); }
+  catch (e) { res.status(502).json({ error: e.message }); }
 });
 
 // Payout partner (mock) — visibility + manual stepping for demos

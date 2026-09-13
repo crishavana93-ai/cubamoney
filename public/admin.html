@@ -46,6 +46,30 @@
     <div id="ledgerTx" style="font-size:.85rem"></div>
   </div>
 
+  <!-- Suppliers / beneficiary verification -->
+  <h2 style="font-size:1.3rem;margin-top:36px">Suppliers · beneficiary verification</h2>
+  <div class="card-box">
+    <p class="muted" style="margin-top:0;font-size:.85rem">Checks run: GSTIN checksum · PAN format · live LEI lookup (GLEIF) · bank-account holder name match. Suppliers must be <b>verified</b> before payout.</p>
+    <div id="suppliersList"></div>
+    <details style="margin-top:16px">
+      <summary style="cursor:pointer;font-weight:700;color:var(--cream)">+ Add supplier</summary>
+      <div class="grid-2" style="margin-top:12px">
+        <div class="form-row"><label>Name</label><input class="fld" id="s_name"></div>
+        <div class="form-row"><label>Beneficiary name (on bank account)</label><input class="fld" id="s_ben"></div>
+        <div class="form-row"><label>Country</label><input class="fld" id="s_country" value="IN"></div>
+        <div class="form-row"><label>Category</label><input class="fld" id="s_cat" placeholder="Solar panels, containers…"></div>
+        <div class="form-row"><label>GSTIN</label><input class="fld" id="s_gstin"></div>
+        <div class="form-row"><label>PAN</label><input class="fld" id="s_pan"></div>
+        <div class="form-row"><label>LEI</label><input class="fld" id="s_lei"></div>
+        <div class="form-row"><label>Bank name</label><input class="fld" id="s_bank"></div>
+        <div class="form-row"><label>Account number</label><input class="fld" id="s_acct"></div>
+        <div class="form-row"><label>IFSC</label><input class="fld" id="s_ifsc"></div>
+        <div class="form-row"><label>SWIFT</label><input class="fld" id="s_swift"></div>
+      </div>
+      <button class="btn btn-primary" id="s_add">Save supplier</button>
+    </details>
+  </div>
+
   <!-- Payout partner (mock) -->
   <h2 style="font-size:1.3rem;margin-top:36px">Payouts · Cuba partner (simulated)</h2>
   <div class="card-box" style="overflow-x:auto">
@@ -96,9 +120,43 @@ async function boot() {
     <div class="stat"><div class="n">${s.users}</div><div class="l">Users</div></div>`;
   await loadRateSettings();
   await loadLedger();
+  await loadSuppliers();
   await loadPayouts();
   await loadOrders();
   await loadRates();
+}
+
+async function loadSuppliers() {
+  const { suppliers } = await api.get('/api/admin/suppliers');
+  const pill = { verified: 'completed', review: 'pending_payment', mismatch: 'failed', unverified: 'pending_payment' };
+  document.getElementById('suppliersList').innerHTML = suppliers.length ? suppliers.map(s => `
+    <div style="padding:14px 0;border-bottom:1px solid var(--line-2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>
+          <b style="color:var(--cream)">${s.name}</b> <span class="pill ${pill[s.status]||''}">${s.status}</span>
+          <div class="muted" style="font-size:.8rem">${s.country} · ${s.category||''} · ${s.bank_name||''} · ****${String(s.bank_account).slice(-4)} · ${s.bank_ifsc||s.bank_swift||''}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" data-verify="${s.id}">${s.status==='unverified'?'Run verification':'Re-verify'}</button>
+      </div>
+      ${s.checks ? `<ul style="margin:10px 0 0;padding-left:18px;font-size:.84rem">
+        ${s.checks.checks.map(c => `<li style="color:${c.ok?'var(--teal)':'#ffb3a8'}">${c.ok?'✓':'✗'} <span style="color:var(--sand)">${c.detail}</span></li>`).join('')}
+      </ul><div class="muted" style="font-size:.75rem;margin-top:6px">ran ${s.checks.ran_at} · bank check via ${s.checks.bank.provider}</div>` : ''}
+    </div>`).join('') : '<p class="muted">No suppliers yet.</p>';
+
+  document.querySelectorAll('[data-verify]').forEach(b => b.addEventListener('click', async () => {
+    b.textContent = 'Verifying…'; b.disabled = true;
+    try { await api.post(`/api/admin/suppliers/${b.dataset.verify}/verify`, {}); } catch (e) { alert(e.message); }
+    loadSuppliers();
+  }));
+  document.getElementById('s_add').onclick = async () => {
+    const v = (id) => document.getElementById(id).value.trim();
+    try {
+      await api.post('/api/admin/suppliers', { name: v('s_name'), beneficiary_name: v('s_ben') || v('s_name'), country: v('s_country'),
+        category: v('s_cat'), gstin: v('s_gstin'), pan: v('s_pan'), lei: v('s_lei'), bank_name: v('s_bank'),
+        bank_account: v('s_acct'), bank_ifsc: v('s_ifsc'), bank_swift: v('s_swift') });
+      loadSuppliers();
+    } catch (e) { alert(e.message); }
+  };
 }
 
 async function loadPayouts() {
