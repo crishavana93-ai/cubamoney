@@ -50,7 +50,8 @@ export function initHeadline() {
   if (!gsap || !head) return;
   document.documentElement.classList.add('gsap-ready');
   const spans = splitWords(head);
-  gsap.to(spans, { yPercent: 0, duration: 1.1, ease: 'expo.out', stagger: 0.06, delay: 0.15 });
+  // fromTo so GSAP owns the transform (a CSS transform alone isn't overridden by yPercent:0)
+  gsap.fromTo(spans, { yPercent: 115 }, { yPercent: 0, duration: 1.1, ease: 'expo.out', stagger: 0.06, delay: 0.15 });
 }
 
 // Pinned, scroll-scrubbed money-flow scene.
@@ -73,7 +74,7 @@ export function initHeroScrolly() {
   const len = arc.getTotalLength();
   gsap.set(arc, { strokeDasharray: len, strokeDashoffset: len });
   gsap.set([cuba, glow], { opacity: 0, transformOrigin: 'center' });
-  gsap.set(dot, { opacity: 0 });
+  gsap.set(dot, { opacity: 1 });          // visible from the start, sitting at the sender's phone
   gsap.set(phases, { opacity: 0 });
   gsap.set(phases[0], { opacity: 1 });
 
@@ -84,8 +85,7 @@ export function initHeroScrolly() {
     },
   });
 
-  tl.to(arc, { strokeDashoffset: 0, ease: 'none', duration: 6 }, 0)
-    .to(dot, { opacity: 1, duration: 0.4 }, 0.2);
+  tl.to(arc, { strokeDashoffset: 0, ease: 'none', duration: 6 }, 0);
 
   if (window.MotionPathPlugin) {
     tl.to(dot, { motionPath: { path: arc, align: arc, alignOrigin: [0.5, 0.5] }, ease: 'none', duration: 6 }, 0);
@@ -96,8 +96,7 @@ export function initHeroScrolly() {
     .to(cuba, { opacity: 1, scale: 1, duration: 1 }, 4.8)
     .to(phases[1], { opacity: 0, duration: 1 }, 5)
     .to(phases[2], { opacity: 1, duration: 1 }, 5.4)
-    .to(glow, { opacity: 1, scale: 1.15, duration: 1.2 }, 5.6)
-    .fromTo(phones, { opacity: 0.35 }, { opacity: 1, duration: 1, stagger: 0.4 }, 0.2);
+    .to(glow, { opacity: 1, scale: 1.15, duration: 1.2 }, 5.6);
 }
 
 // GSAP-powered reveals for the rest of the page (upgrade over IntersectionObserver).
