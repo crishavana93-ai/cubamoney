@@ -52,6 +52,13 @@ export function initHeadline() {
   const spans = splitWords(head);
   // fromTo so GSAP owns the transform (a CSS transform alone isn't overridden by yPercent:0)
   gsap.fromTo(spans, { yPercent: 115 }, { yPercent: 0, duration: 1.1, ease: 'expo.out', stagger: 0.06, delay: 0.15 });
+  // Safety: rAF (and therefore GSAP) is paused in background tabs. Guarantee the
+  // headline ends up visible even if the tween never gets to run.
+  const reveal = () => gsap.set(spans, { yPercent: 0 });
+  setTimeout(reveal, 3000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') setTimeout(reveal, 1600);
+  });
 }
 
 // Pinned, scroll-scrubbed money-flow scene.
