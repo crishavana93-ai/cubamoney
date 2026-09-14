@@ -314,13 +314,15 @@ html.lenis, html.lenis body { height: auto; }
 /* ───── scrollytelling hero (GSAP pinned money-flow scene) ───── */
 .hero-scrolly { position: relative; }
 .hero-stage { height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; gap: 1.4rem; padding: 96px 20px 118px; box-sizing: border-box; }
-.hero-head { text-align: center; max-width: 18ch; }
-.hero-head h1 { font-size: clamp(2rem, 4.6vw, 3.6rem); text-shadow: 0 4px 40px rgba(0,0,0,.5); margin: 0; }
+.hero-head { text-align: center; width: 100%; max-width: 940px; flex-shrink: 0; }
+/* max-width in ch must live on the h1 so it uses the h1's own font size */
+.hero-head h1 { font-size: clamp(2rem, 4.6vw, 3.6rem); max-width: 16ch; margin: 0 auto; text-shadow: 0 4px 40px rgba(0,0,0,.5); }
 .hero-head h1 em { font-style: italic; color: var(--gold); }
 .word { display: inline-block; overflow: hidden; padding-bottom: .06em; }
 .word > span { display: inline-block; }
 .gsap-ready .hero-head .word > span { transform: translateY(115%); will-change: transform; }
-.hero-scene { width: min(1080px, 94vw); max-height: 40svh; height: auto; display: block; }
+.hero-scene { width: min(1080px, 94vw); max-height: 40svh; min-height: 220px; height: auto; display: block; flex-shrink: 0; }
+.phases { flex-shrink: 0; }
 .phases { position: relative; height: 2.6em; width: 100%; max-width: 640px; }
 .phase { position: absolute; inset: 0; text-align: center; }
 .phase .k { font-size: .74rem; letter-spacing: .3em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
