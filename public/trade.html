@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade console — Cuba Money</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,600&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  .rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin:18px 0 34px; }
+  .rule { border:1px solid rgba(226,59,46,.35); background:rgba(226,59,46,.08); border-radius:14px; padding:14px 16px; }
+  .rule b { color:#ffb3a8; display:block; margin-bottom:4px; }
+  .rule span { color:var(--sand); font-size:.85rem; }
+  .pipeline { display:flex; gap:6px; flex-wrap:wrap; }
+  .pipeline span { font-size:.7rem; padding:3px 8px; border-radius:999px; border:1px solid var(--line); color:var(--sand-dim); }
+  .pipeline span.done { background:rgba(43,179,163,.18); color:#9ff0e2; border-color:rgba(43,179,163,.35); }
+  .pipeline span.now { background:linear-gradient(135deg,var(--gold),var(--amber)); color:#2a160a; border-color:transparent; font-weight:700; }
+  .result { margin-top:14px; }
+  .kv { display:flex; justify-content:space-between; gap:10px; padding:4px 0; font-size:.9rem; }
+  h2.sec { font-size:1.3rem; margin:40px 0 12px; }
+  .row-actions { display:flex; gap:6px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<div id="header"></div>
+
+<div class="page" style="max-width:1180px">
+  <div class="eyebrow">B2B · merchant of record</div>
+  <h1 style="font-size:2rem;margin-bottom:.3rem">Trade console</h1>
+  <p class="muted" style="margin-top:0">A Cuban business orders goods → its <b>named payer</b> pays us by bank in EUR → we match it 1:1 → we pay the verified supplier → the goods ship. The money never goes to Cuba and never touches cash.</p>
+
+  <div class="rules" id="rules"></div>
+
+  <!-- ORDERS -->
+  <h2 class="sec">Orders</h2>
+  <div class="card-box" style="overflow-x:auto">
+    <table class="tbl" id="ordersTbl">
+      <thead><tr><th>Order</th><th>Client → Supplier</th><th>Named payer</th><th>Amounts (EUR)</th><th>Progress</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="orderMsg" class="result"></div>
+  </div>
+
+  <div class="grid-2" style="margin-top:22px;align-items:start">
+    <!-- NEW ORDER -->
+    <div class="card-box">
+      <h3 style="margin-top:0">New order</h3>
+      <div class="form-row"><label>Client (Cuban business)</label><select class="fld" id="o_client"></select></div>
+      <div class="form-row"><label>Named payer (must be in the contract)</label><select class="fld" id="o_payer"></select></div>
+      <div class="form-row"><label>Supplier</label><select class="fld" id="o_supplier"></select></div>
+      <div class="form-row"><label>Goods</label><input class="fld" id="o_desc" placeholder="Solar panels — 1 × 40ft container"></div>
+      <div class="grid-2">
+        <div class="form-row"><label>Proforma invoice ref</label><input class="fld" id="o_pi" placeholder="PI-2026-001"></div>
+        <div class="form-row"><label>Goods amount (EUR)</label><input class="fld" id="o_amount" type="number" step="0.01" placeholder="20000"></div>
+      </div>
+      <div class="form-row"><label>Commission %</label><input class="fld" id="o_pct" type="number" step="0.1" value="5"></div>
+      <div class="breakdown" id="o_preview"></div>
+      <button class="btn btn-primary btn-block" id="o_create">Create order</button>
+    </div>
+
+    <!-- SIMULATE BANK CREDIT -->
+    <div class="card-box">
+      <h3 style="margin-top:0">Incoming bank payment</h3>
+      <p class="muted" style="font-size:.85rem;margin-top:-.3rem">Simulates money arriving on our EUR account. In production this comes from the bank statement feed. Try breaking a rule: send USD, cash, the wrong person, or the wrong amount.</p>
+      <div class="form-row"><label>Payment reference</label><input class="fld" id="p_ref" placeholder="TO-…"></div>
+      <div class="form-row"><label>Sender name (as shown by the bank)</label><input class="fld" id="p_name"></div>
+      <div class="grid-2">
+        <div class="form-row"><label>Amount</label><input class="fld" id="p_amount" type="number" step="0.01"></div>
+        <div class="form-row"><label>Currency</label><select class="fld" id="p_cur"><option>EUR</option><option>USD</option></select></div>
+      </div>
+      <div class="form-row"><label>Method</label><select class="fld" id="p_method"><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option></select></div>
+      <button class="btn btn-primary btn-block" id="p_send">Receive payment</button>
+      <div id="p_result" class="result"></div>
+    </div>
+  </div>
+
+  <!-- PAYMENTS LOG -->
+  <h2 class="sec">Payment log</h2>
+  <div class="card-box" style="overflow-x:auto">
+    <table class="tbl" id="payTbl">
+      <thead><tr><th>When</th><th>Sender</th><th>Amount</th><th>Method</th><th>Reference</th><th>Result</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- CLIENT MONEY -->
+  <h2 class="sec">Client money (EUR ledger)</h2>
+  <div class="card-box">
+    <div id="eurRecon" style="margin-bottom:10px"></div>
+    <table class="tbl" id="eurTbl"><thead><tr><th>Account</th><th>Balance</th></tr></thead><tbody></tbody></table>
+    <p class="muted" style="font-size:.8rem;margin-bottom:0">Each client has its own bucket. Once an order is fully paid out, that client's bucket returns to €0 — proof the money in went out 1:1. Only the commission stays with us.</p>
+  </div>
+
+  <!-- CLIENTS & PAYERS -->
+  <h2 class="sec">Clients &amp; named payers</h2>
+  <div class="grid-2" style="align-items:start">
+    <div class="card-box">
+      <h3 style="margin-top:0">Clients</h3>
+      <div id="clientsList"></div>
+      <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--cream)">+ Add client</summary>
+        <div class="form-row" style="margin-top:10px"><label>Business name</label><input class="fld" id="c_name"></div>
+        <div class="grid-2">
+          <div class="form-row"><label>Registration no.</label><input class="fld" id="c_reg"></div>
+          <div class="form-row"><label>Contact name</label><input class="fld" id="c_contact"></div>
+        </div>
+        <button class="btn btn-ghost" id="c_add">Save client</button>
+      </details>
+    </div>
+    <div class="card-box">
+      <h3 style="margin-top:0">Named payers</h3>
+      <div id="payersList"></div>
+      <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--cream)">+ Add payer</summary>
+        <div class="form-row" style="margin-top:10px"><label>For client</label><select class="fld" id="y_client"></select></div>
+        <div class="grid-2">
+          <div class="form-row"><label>Full name</label><input class="fld" id="y_name"></div>
+          <div class="form-row"><label>Relationship to client</label><input class="fld" id="y_rel" placeholder="Cousin of owner"></div>
+          <div class="form-row"><label>Country</label><input class="fld" id="y_country" placeholder="ES"></div>
+          <div class="form-row"><label>IBAN</label><input class="fld" id="y_iban"></div>
+        </div>
+        <div class="form-row"><label>Source of funds</label><input class="fld" id="y_sof" placeholder="Salary, business income…"></div>
+        <button class="btn btn-ghost" id="y_add">Save payer</button>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div id="footer"></div>
+<script type="module">
+import { api, getMe, renderHeader, renderFooter } from '/js/app.js';
+await renderHeader(); renderFooter();
+
+const me = await getMe();
+if (!me) location.href = '/login.html?next=/trade.html';
+else if (me.role !== 'admin') document.querySelector('.page').innerHTML = '<div class="alert alert-error">Admin access required.</div>';
+
+const $ = (id) => document.getElementById(id);
+const eur = (n) => '€' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const STEPS = [['awaiting_payment', 'Awaiting payment'], ['funded', 'Funded'], ['supplier_paid', 'Supplier paid'], ['shipped', 'Shipped'], ['delivered', 'Delivered']];
+const kycPill = (s) => `<span class="pill ${s === 'approved' ? 'completed' : s === 'rejected' ? 'failed' : 'pending_payment'}">KYC ${s}</span>`;
+let D;
+
+async function load() {
+  D = await api.get('/api/trade/overview');
+  $('rules').innerHTML = D.rules.map(r => `<div class="rule"><b>${esc(r.title)}</b><span>${esc(r.text)}</span></div>`).join('');
+
+  // orders
+  $('ordersTbl').querySelector('tbody').innerHTML = D.orders.length ? D.orders.map(o => {
+    const idx = STEPS.findIndex(s => s[0] === o.status);
+    const pipe = STEPS.map((s, i) => `<span class="${i < idx ? 'done' : i === idx ? 'now' : ''}">${s[1]}</span>`).join('');
+    const actions = [];
+    if (o.status === 'awaiting_payment') actions.push(`<button class="btn btn-ghost btn-sm" data-prefill="${o.ref}">Simulate payment</button>`);
+    if (o.status === 'funded') actions.push(`<button class="btn btn-primary btn-sm" data-release="${o.ref}">Pay supplier</button>`);
+    if (['supplier_paid', 'shipped'].includes(o.status)) actions.push(`<button class="btn btn-ghost btn-sm" data-advance="${o.ref}">${o.status === 'supplier_paid' ? 'Mark shipped' : 'Mark delivered'}</button>`);
+    actions.push(`<a class="btn btn-ghost btn-sm" href="/order.html?ref=${o.ref}" target="_blank">Payer view ↗</a>`);
+    return `<tr>
+      <td><b>${o.ref}</b><br><span class="muted" style="font-size:.78rem">${esc(o.description)}<br>PI ${esc(o.proforma_ref || '—')}</span></td>
+      <td>${esc(o.client_name)}<br><span class="muted" style="font-size:.78rem">→ ${esc(o.supplier_name)} <span class="pill ${o.supplier_status === 'verified' ? 'completed' : 'pending_payment'}">${o.supplier_status}</span></span></td>
+      <td>${esc(o.payer_name)}<br><span class="muted" style="font-size:.78rem">${esc(o.payer_relationship || '')}</span></td>
+      <td style="white-space:nowrap">Goods ${eur(o.goods_amount)}<br>Fee ${o.commission_pct}% ${eur(o.commission_amount)}<br><b>Due ${eur(o.total_due)}</b></td>
+      <td><div class="pipeline">${pipe}</div></td>
+      <td><div class="row-actions">${actions.join('')}</div></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="muted">No orders yet.</td></tr>';
+
+  document.querySelectorAll('[data-prefill]').forEach(b => b.onclick = () => {
+    const o = D.orders.find(x => x.ref === b.dataset.prefill);
+    $('p_ref').value = o.ref; $('p_name').value = o.payer_name; $('p_amount').value = o.total_due;
+    $('p_cur').value = 'EUR'; $('p_method').value = 'bank_transfer';
+    $('p_ref').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  document.querySelectorAll('[data-release]').forEach(b => b.onclick = () => act(`/api/trade/orders/${b.dataset.release}/release`, 'Supplier paid.'));
+  document.querySelectorAll('[data-advance]').forEach(b => b.onclick = () => act(`/api/trade/orders/${b.dataset.advance}/advance`, 'Shipment updated.'));
+
+  // selects
+  $('o_client').innerHTML = D.clients.map(c => `<option value="${c.id}">${esc(c.name)} (KYC ${c.kyc_status})</option>`).join('');
+  $('y_client').innerHTML = $('o_client').innerHTML;
+  $('o_supplier').innerHTML = D.suppliers.map(s => `<option value="${s.id}">${esc(s.name)} · ${esc(s.country)} · ${s.status}</option>`).join('');
+  fillPayers();
+
+  // payments log
+  $('payTbl').querySelector('tbody').innerHTML = D.payments.length ? D.payments.map(p => `
+    <tr><td class="muted" style="font-size:.8rem">${p.created_at}</td><td>${esc(p.payer_name || '—')}</td>
+    <td>${Number(p.amount).toLocaleString('en-US')} ${esc(p.currency)}</td><td>${esc(p.method)}</td><td>${esc(p.reference || '—')}</td>
+    <td><span class="pill ${p.status === 'matched' ? 'completed' : 'failed'}">${p.status}</span><br><span class="muted" style="font-size:.78rem">${esc(p.reason || '')}</span></td></tr>`).join('')
+    : '<tr><td colspan="6" class="muted">No payments yet.</td></tr>';
+
+  // clients & payers
+  $('clientsList').innerHTML = D.clients.map(c => `
+    <div style="padding:10px 0;border-bottom:1px solid var(--line-2);display:flex;justify-content:space-between;gap:10px;align-items:center">
+      <div><b style="color:var(--cream)">${esc(c.name)}</b> ${kycPill(c.kyc_status)}<div class="muted" style="font-size:.78rem">${esc(c.country)} · ${esc(c.registration || '')}</div></div>
+      ${c.kyc_status !== 'approved' ? `<button class="btn btn-ghost btn-sm" data-ckyc="${c.id}">Approve KYC</button>` : ''}
+    </div>`).join('') || '<p class="muted">No clients.</p>';
+  $('payersList').innerHTML = D.payers.map(p => `
+    <div style="padding:10px 0;border-bottom:1px solid var(--line-2);display:flex;justify-content:space-between;gap:10px;align-items:center">
+      <div><b style="color:var(--cream)">${esc(p.full_name)}</b> ${kycPill(p.kyc_status)}<div class="muted" style="font-size:.78rem">for ${esc(p.client_name)} · ${esc(p.relationship || '')} · ${esc(p.country || '')}</div></div>
+      ${p.kyc_status !== 'approved' ? `<button class="btn btn-ghost btn-sm" data-pkyc="${p.id}">Approve KYC</button>` : ''}
+    </div>`).join('') || '<p class="muted">No payers.</p>';
+  document.querySelectorAll('[data-ckyc]').forEach(b => b.onclick = () => act(`/api/trade/clients/${b.dataset.ckyc}/kyc`, 'Client approved.', { status: 'approved' }));
+  document.querySelectorAll('[data-pkyc]').forEach(b => b.onclick = () => act(`/api/trade/payers/${b.dataset.pkyc}/kyc`, 'Payer approved.', { status: 'approved' }));
+
+  // EUR ledger
+  const L = await api.get('/api/admin/ledger');
+  const eurRows = L.accounts.filter(a => a.currency === 'EUR');
+  const rc = (L.reconciliation.byCurrency || []).find(c => c.currency === 'EUR');
+  $('eurRecon').innerHTML = rc ? (rc.reconciled
+    ? `<span class="pill completed">Reconciled ✓</span> <span class="muted">Bank ${eur(rc.assets)} = client money ${eur(rc.liabilities)} + commission ${eur(rc.revenue)}</span>`
+    : `<span class="pill failed">Out of balance</span> <span class="muted">diff ${eur(rc.diff)}</span>`) : '';
+  $('eurTbl').querySelector('tbody').innerHTML = eurRows.map(a => `<tr><td>${esc(a.name)}<br><span class="muted" style="font-size:.75rem">${a.code}</span></td><td><b>${eur(a.balance)}</b></td></tr>`).join('');
+  preview();
+}
+
+function fillPayers() {
+  const cid = Number($('o_client').value);
+  $('o_payer').innerHTML = D.payers.filter(p => p.client_id === cid)
+    .map(p => `<option value="${p.id}">${esc(p.full_name)} (KYC ${p.kyc_status})</option>`).join('') || '<option value="">— add a payer for this client —</option>';
+}
+function preview() {
+  const g = Number($('o_amount').value || 0), pct = Number($('o_pct').value || 0);
+  const c = Math.round(g * pct) / 100;
+  $('o_preview').innerHTML = `<div class="row"><span>Goods (paid to supplier)</span><span>${eur(g)}</span></div>
+    <div class="row"><span>Our commission ${pct}%</span><span>${eur(c)}</span></div>
+    <div class="row total"><span>Payer sends</span><span>${eur(g + c)}</span></div>`;
+}
+async function act(url, okMsg, body = {}) {
+  try { await api.post(url, body); $('orderMsg').innerHTML = `<div class="alert alert-ok">${okMsg}</div>`; }
+  catch (e) { $('orderMsg').innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+  await load();
+}
+
+$('o_client').onchange = fillPayers;
+$('o_amount').oninput = preview; $('o_pct').oninput = preview;
+$('o_create').onclick = async () => {
+  try {
+    const { order } = await api.post('/api/trade/orders', {
+      client_id: Number($('o_client').value), payer_id: Number($('o_payer').value), supplier_id: Number($('o_supplier').value),
+      description: $('o_desc').value.trim() || 'Goods', proforma_ref: $('o_pi').value.trim(),
+      goods_amount: Number($('o_amount').value), commission_pct: Number($('o_pct').value),
+    });
+    $('orderMsg').innerHTML = `<div class="alert alert-ok">Order <b>${order.ref}</b> created — ${esc(order.payer_name)} must pay ${eur(order.total_due)} with that reference.</div>`;
+    load();
+  } catch (e) { $('orderMsg').innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+};
+$('p_send').onclick = async () => {
+  try {
+    const r = await api.post('/api/trade/payments', {
+      reference: $('p_ref').value.trim(), payer_name: $('p_name').value.trim(), amount: Number($('p_amount').value),
+      currency: $('p_cur').value, method: $('p_method').value,
+    });
+    $('p_result').innerHTML = r.matched
+      ? `<div class="alert alert-ok">✓ Matched to ${r.order.ref}. Funds held in ${esc(r.order.client_name)}'s bucket until the supplier is paid.</div>`
+      : `<div class="alert alert-error">✗ Rejected — ${esc(r.reason)}</div>`;
+    load();
+  } catch (e) { $('p_result').innerHTML = `<div class="alert alert-error">${esc(e.message)}</div>`; }
+};
+$('c_add').onclick = () => act('/api/trade/clients', 'Client added.', { name: $('c_name').value.trim(), registration: $('c_reg').value.trim(), contact_name: $('c_contact').value.trim() });
+$('y_add').onclick = () => act('/api/trade/payers', 'Payer added.', {
+  client_id: Number($('y_client').value), full_name: $('y_name').value.trim(), relationship: $('y_rel').value.trim(),
+  country: $('y_country').value.trim(), iban: $('y_iban').value.trim(), source_of_funds: $('y_sof').value.trim() });
+
+if (me && me.role === 'admin') load();
+</script>
+</body>
+</html>

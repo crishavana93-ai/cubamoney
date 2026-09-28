@@ -40,13 +40,27 @@ const SYSTEM_ACCOUNTS = [
   ['fx_pnl',                'FX spread P&L',                   'revenue',   'credit'],
 ];
 
+// EUR books for the B2B trade flow (merchant-of-record).
+const EUR_ACCOUNTS = [
+  ['bank_eur',               'EUR bank account (client money)', 'asset',   'debit',  'EUR'],
+  ['commission_revenue_eur', 'Commission revenue',              'revenue', 'credit', 'EUR'],
+];
+
+export function ensureAccount(code, name, kind, normal, currency = 'USD') {
+  db.prepare('INSERT OR IGNORE INTO ledger_accounts (code, name, kind, normal, currency) VALUES (?,?,?,?,?)')
+    .run(code, name, kind, normal, currency);
+  return code;
+}
+
 export function ensureLedgerSeed() {
-  const has = db.prepare('SELECT COUNT(*) AS n FROM ledger_accounts').get().n;
-  if (has === 0) {
-    const ins = db.prepare('INSERT INTO ledger_accounts (code, name, kind, normal) VALUES (?,?,?,?)');
-    const tx = db.transaction((rows) => rows.forEach((r) => ins.run(r)));
-    tx(SYSTEM_ACCOUNTS);
-  }
+  for (const a of SYSTEM_ACCOUNTS) ensureAccount(a[0], a[1], a[2], a[3], 'USD');
+  for (const a of EUR_ACCOUNTS) ensureAccount(...a);
+}
+
+// One liability account per client — this is what makes "no pooling" provable:
+// each client's money sits in its own bucket and must net to zero per order.
+export function clientFundsAccount(clientId, clientName) {
+  return ensureAccount(`client_funds:${clientId}`, `Client funds — ${clientName}`, 'liability', 'credit', 'EUR');
 }
 
 function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
@@ -92,15 +106,19 @@ export function balances() {
   });
 }
 
-// Reconciliation: assets should equal liabilities + revenue (equity=0 here).
+// Reconciliation per currency: assets = liabilities + revenue (never mix USD and EUR).
 export function reconciliation() {
   const b = balances();
-  const sum = (kind) => round2(b.filter((a) => a.kind === kind).reduce((t, a) => t + a.balance, 0));
-  const assets = sum('asset');
-  const liabilities = sum('liability');
-  const revenue = sum('revenue');
-  const diff = round2(assets - (liabilities + revenue));
-  return { assets, liabilities, revenue, diff, reconciled: Math.abs(diff) < 0.01 };
+  const currencies = [...new Set(b.map((a) => a.currency))];
+  const byCurrency = currencies.map((cur) => {
+    const rows = b.filter((a) => a.currency === cur);
+    const sum = (kind) => round2(rows.filter((a) => a.kind === kind).reduce((t, a) => t + a.balance, 0));
+    const assets = sum('asset'), liabilities = sum('liability'), revenue = sum('revenue');
+    const diff = round2(assets - (liabilities + revenue));
+    return { currency: cur, assets, liabilities, revenue, diff, reconciled: Math.abs(diff) < 0.01 };
+  });
+  const usd = byCurrency.find((c) => c.currency === 'USD') || { assets: 0, liabilities: 0, revenue: 0, diff: 0 };
+  return { ...usd, reconciled: byCurrency.every((c) => c.reconciled), byCurrency };
 }
 
 export function recentTx(limit = 25) {

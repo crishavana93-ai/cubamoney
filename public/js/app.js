@@ -54,7 +54,7 @@ export async function renderHeader() {
   if (!el) return;
   const lang = getLang();
   const authArea = me
-    ? `${me.role === 'admin' ? `<a class="link" href="/admin.html">${t('nav.admin')}</a>` : ''}
+    ? `${me.role === 'admin' ? `<a class="link" href="/trade.html">Trade</a><a class="link" href="/admin.html">${t('nav.admin')}</a>` : ''}
        <a class="link" href="/dashboard.html">${t('nav.transfers')}</a>
        <a class="btn btn-ghost btn-sm" href="#" id="logoutBtn">${t('nav.logout')}</a>`
     : `<a class="btn btn-ghost btn-sm" href="/login.html">${t('nav.login')}</a>`;

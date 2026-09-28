@@ -17,6 +17,10 @@ import { listPayouts, advancePayout, failPayout, getPayoutByRef, startPayoutWork
 import { getProvider, listProviders } from './src/payin/index.js';
 import { listSuppliers, getSupplier, createSupplier, verifySupplier, ensureSupplierSeed } from './src/suppliers.js';
 import {
+  ensureTradeSeed, overview as tradeOverview, createClient, setClientKyc, createPayer, setPayerKyc,
+  createOrder as createTradeOrder, recordIncomingPayment, releaseToSupplier, advanceShipment, paymentInstructions,
+} from './src/trade.js';
+import {
   createOrder as ppCreate,
   captureOrder as ppCapture,
   paypalConfigured,
@@ -57,6 +61,7 @@ app.use(attachUser);
 ensureSeed();
 ensureLedgerSeed();
 ensureSupplierSeed();
+ensureTradeSeed();
 // Migration: orders may reference a locked quote.
 try { db.exec('ALTER TABLE orders ADD COLUMN quote_ref TEXT'); } catch { /* already exists */ }
 
@@ -329,6 +334,34 @@ app.post('/api/admin/orders/:ref/status', requireAuth, requireAdmin, (req, res) 
   if (notes) db.prepare('UPDATE orders SET notes = ? WHERE id = ?').run(notes, order.id);
   const updated = setOrderStatus(order.id, status);   // ledger + payout hand-off on 'paid'
   res.json({ order: updated });
+});
+
+/* ── B2B trade (merchant-of-record supplier payments) ── */
+const tradeRoute = (fn) => async (req, res) => {
+  try { res.json(await fn(req)); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+};
+app.get('/api/trade/overview', requireAuth, requireAdmin, tradeRoute(() => tradeOverview()));
+app.post('/api/trade/clients', requireAuth, requireAdmin, tradeRoute((req) => {
+  if (!req.body?.name) throw new Error('Client name is required.');
+  return { client: createClient(req.body) };
+}));
+app.post('/api/trade/clients/:id/kyc', requireAuth, requireAdmin, tradeRoute((req) => ({ client: setClientKyc(req.params.id, req.body?.status) })));
+app.post('/api/trade/payers', requireAuth, requireAdmin, tradeRoute((req) => {
+  if (!req.body?.client_id || !req.body?.full_name) throw new Error('Client and payer name are required.');
+  return { payer: createPayer(req.body) };
+}));
+app.post('/api/trade/payers/:id/kyc', requireAuth, requireAdmin, tradeRoute((req) => ({ payer: setPayerKyc(req.params.id, req.body?.status) })));
+app.post('/api/trade/orders', requireAuth, requireAdmin, tradeRoute((req) => ({ order: createTradeOrder(req.body || {}) })));
+// Simulates a bank credit arriving on our EUR account (in production: bank-statement feed / webhook).
+app.post('/api/trade/payments', requireAuth, requireAdmin, tradeRoute((req) => recordIncomingPayment(req.body || {})));
+app.post('/api/trade/orders/:ref/release', requireAuth, requireAdmin, tradeRoute((req) => ({ order: releaseToSupplier(req.params.ref) })));
+app.post('/api/trade/orders/:ref/advance', requireAuth, requireAdmin, tradeRoute((req) => ({ order: advanceShipment(req.params.ref) })));
+// Public: payment instructions for the named payer (by order reference).
+app.get('/api/trade/instructions/:ref', (req, res) => {
+  const i = paymentInstructions(req.params.ref);
+  if (!i) return res.status(404).json({ error: 'Order not found.' });
+  res.json(i);
 });
 
 // Suppliers (beneficiaries we pay) + verification

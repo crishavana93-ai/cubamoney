@@ -188,9 +188,9 @@ async function loadLedger() {
     <tr>
       <td>${a.name}<br><span class="muted" style="font-size:.75rem">${a.code}</span></td>
       <td style="text-transform:capitalize">${a.kind}</td>
-      <td>${money(a.debit)}</td>
-      <td>${money(a.credit)}</td>
-      <td><b>${money(a.balance)}</b></td>
+      <td>${money(a.debit, a.currency)}</td>
+      <td>${money(a.credit, a.currency)}</td>
+      <td><b>${money(a.balance, a.currency)}</b></td>
     </tr>`).join('');
 
   const { transactions } = await api.get('/api/admin/ledger/tx?limit=12');

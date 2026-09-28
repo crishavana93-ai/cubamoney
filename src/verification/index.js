@@ -61,9 +61,13 @@ export async function gleifLookup(lei) {
 }
 
 /* ───────── name matching ───────── */
-const STOP = new Set(['LTD', 'LIMITED', 'PVT', 'PRIVATE', 'LLP', 'INC', 'LLC', 'CO', 'COMPANY', 'THE', 'AND', '&', 'SL', 'SA', 'AB', 'GMBH']);
+const STOP = new Set(['LTD', 'LIMITED', 'PVT', 'PRIVATE', 'LLP', 'INC', 'LLC', 'CO', 'COMPANY', 'THE', 'AND', '&',
+  'SL', 'SLU', 'SA', 'SAU', 'SRL', 'SAS', 'AB', 'GMBH', 'BV', 'NV', 'OU', 'UAB', 'LTDA', 'CIA', 'SPA', 'OY', 'AS', 'APS']);
 export function normaliseName(s) {
-  return String(s || '').toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').split(/\s+/).filter((t) => t && !STOP.has(t));
+  return String(s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // strip accents: Pérez → Perez (banks often drop them)
+    .replace(/\./g, '')                                  // S.L. → SL, S.R.L. → SRL
+    .toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').split(/\s+/).filter((t) => t && !STOP.has(t));
 }
 export function nameMatchScore(a, b) {
   const A = new Set(normaliseName(a)), B = new Set(normaliseName(b));

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instrucciones de pago — Cuba Money</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,600&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+  .big { font-family: var(--ff-disp); font-size: 2.6rem; color: var(--gold); line-height: 1.1; }
+  .copy { cursor: pointer; border-bottom: 1px dashed var(--line); }
+  .warn li { margin: 6px 0; color: var(--sand); }
+  .status-steps { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .status-steps span { font-size:.75rem; padding:4px 10px; border-radius:999px; border:1px solid var(--line); color:var(--sand-dim); }
+  .status-steps span.done { background:rgba(43,179,163,.18); color:#9ff0e2; border-color:rgba(43,179,163,.35); }
+  .status-steps span.now { background:linear-gradient(135deg,var(--gold),var(--amber)); color:#2a160a; border-color:transparent; font-weight:700; }
+</style>
+</head>
+<body>
+<div id="header"></div>
+<div class="page" style="max-width:720px" id="root"><p class="muted">Cargando…</p></div>
+<div id="footer"></div>
+<script type="module">
+import { api, renderHeader, renderFooter } from '/js/app.js';
+await renderHeader(); renderFooter();
+
+const ref = new URLSearchParams(location.search).get('ref') || '';
+const eur = (n) => '€' + Number(n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const root = document.getElementById('root');
+const STEPS = [['awaiting_payment', 'Esperando pago'], ['funded', 'Pago recibido'], ['supplier_paid', 'Proveedor pagado'], ['shipped', 'Enviado'], ['delivered', 'Entregado']];
+
+try {
+  const o = await api.get('/api/trade/instructions/' + encodeURIComponent(ref));
+  const idx = STEPS.findIndex(s => s[0] === o.status);
+  const steps = STEPS.map((s, i) => `<span class="${i < idx ? 'done' : i === idx ? 'now' : ''}">${s[1]}</span>`).join('');
+  const row = (k, v, copy) => `<div class="row"><span>${k}</span><b ${copy ? `class="copy" data-copy="${esc(v)}" title="Copiar"` : ''}>${esc(v)}</b></div>`;
+
+  root.innerHTML = `
+    <div class="eyebrow">Orden de pago · ${esc(o.ref)}</div>
+    <h1 style="font-size:1.9rem;margin-bottom:.4rem">${esc(o.description)}</h1>
+    <p class="muted" style="margin-top:0">Para <b style="color:var(--cream)">${esc(o.client_name)}</b> · proveedor ${esc(o.supplier_name)} · factura proforma ${esc(o.proforma_ref || '—')}</p>
+    <div class="status-steps">${steps}</div>
+
+    ${o.status === 'awaiting_payment' ? `
+    <div class="card-box" style="margin-top:22px">
+      <p class="muted" style="margin:0 0 4px">Esta transferencia debe hacerla <b style="color:var(--cream)">${esc(o.payer_name)}</b>, desde una cuenta bancaria a su nombre.</p>
+      <div class="big">${eur(o.total_due)}</div>
+      <p class="muted" style="margin-top:4px;font-size:.85rem">Mercancía ${eur(o.goods_amount)} + comisión ${o.commission_pct}% ${eur(o.commission_amount)}</p>
+      <div class="bank-box" style="margin-top:16px">
+        ${row('Beneficiario', o.bank.beneficiary, true)}
+        ${row('Banco', o.bank.bank)}
+        ${row('IBAN', o.bank.iban, true)}
+        ${row('BIC / SWIFT', o.bank.bic, true)}
+        ${row('Importe exacto', eur(o.total_due))}
+        ${row('Moneda', 'EUR')}
+        ${row('Referencia (obligatoria)', o.ref, true)}
+      </div>
+      <div id="copied" class="muted" style="font-size:.8rem;height:1.2em;margin-top:6px"></div>
+    </div>
+
+    <div class="card-box" style="margin-top:16px">
+      <h3 style="margin-top:0">Para que el pago sea aceptado</h3>
+      <ul class="warn">
+        <li>Envía <b>exactamente ${eur(o.total_due)}</b> en <b>una sola transferencia</b>. Pagos parciales o combinados se devuelven.</li>
+        <li>Solo en <b>euros (EUR)</b>. No se aceptan dólares.</li>
+        <li>Solo por <b>transferencia bancaria</b> desde una cuenta a nombre de <b>${esc(o.payer_name)}</b>. No se acepta efectivo ni pagos de terceros.</li>
+        <li>Incluye la referencia <b>${esc(o.ref)}</b> en el concepto.</li>
+      </ul>
+      <p class="muted" style="font-size:.8rem;margin-bottom:0">Si algo no coincide, el dinero se devuelve al remitente. Así protegemos tu pago y el del proveedor.</p>
+    </div>` : `
+    <div class="card-box" style="margin-top:22px">
+      <div class="alert alert-ok" style="margin:0">Pago recibido y verificado. Estado actual: <b>${esc(STEPS[idx]?.[1] || o.status)}</b>.</div>
+    </div>`}
+  `;
+  root.querySelectorAll('[data-copy]').forEach(el => el.onclick = async () => {
+    try { await navigator.clipboard.writeText(el.dataset.copy); document.getElementById('copied').textContent = 'Copiado: ' + el.dataset.copy; } catch {}
+  });
+} catch (e) {
+  root.innerHTML = `<div class="alert alert-error">No encontramos la orden “${esc(ref)}”.</div>`;
+}
+</script>
+</body>
+</html>
